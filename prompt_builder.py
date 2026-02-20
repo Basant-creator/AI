@@ -75,10 +75,12 @@ Create comprehensive CSS with:
             return """
 Create authentication JavaScript with:
 - Form validation
-- API calls to backend
+- API calls to backend using a base URL constant defined at the top:
+    const API_BASE = 'http://localhost:5000/api';
+  Use this constant for ALL fetch calls (e.g. fetch(`${API_BASE}/auth/signup`, ...)) so the origin is consistent and CORS works correctly.
 - Token storage (localStorage)
 - Redirect after login/signup
-- Error handling
+- Error handling with user-friendly messages
 - Loading states
 """
         elif 'dashboard' in filename:
@@ -104,12 +106,14 @@ Create JavaScript with:
         return """
 Create Express.js server with:
 - Express setup and middleware
-- CORS configuration
-- Body parser
+- CORS configuration: use the 'cors' package and allow ALL origins with:
+    app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
+  This is critical so that browsers (including Live Server on port 5500) can reach the API.
+- Body parser: app.use(express.json()) and app.use(express.urlencoded({ extended: true }))
 - Routes import
 - Database connection
 - Error handling
-- Port configuration
+- Port configuration (default 5000)
 - Start server
 """
     

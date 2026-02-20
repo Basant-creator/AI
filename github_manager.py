@@ -80,6 +80,28 @@ class GitHubManager:
             else:
                 raise Exception(f"Failed to create repository: {str(e)}")
     
+    def _create_or_update_file(self, repo, path, message, content):
+        """
+        Create a file or update it if it already exists (fetches sha automatically).
+        """
+        try:
+            existing = repo.get_contents(path)
+            repo.update_file(
+                path=path,
+                message=message,
+                content=content,
+                sha=existing.sha
+            )
+        except GithubException as e:
+            if e.status == 404:
+                repo.create_file(
+                    path=path,
+                    message=message,
+                    content=content
+                )
+            else:
+                raise
+
     def push_files(self, repo, files):
         """
         Push multiple files to the repository
@@ -118,7 +140,8 @@ This website was automatically generated using AI.
 """
             
             # Push README first
-            repo.create_file(
+            self._create_or_update_file(
+                repo=repo,
                 path="README.md",
                 message="Initial commit: Add README",
                 content=readme_content
@@ -127,11 +150,9 @@ This website was automatically generated using AI.
             
             # Push all generated files
             for filename, content in files.items():
-                # Create subdirectories if needed
-                path = filename
-                
-                repo.create_file(
-                    path=path,
+                self._create_or_update_file(
+                    repo=repo,
+                    path=filename,
                     message=f"Add {filename}",
                     content=content
                 )
