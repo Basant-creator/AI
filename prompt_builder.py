@@ -71,17 +71,19 @@ Create comprehensive CSS with:
 """
     
     elif filename.endswith('.js'):
-        if 'auth' in filename:
+        if 'auth' in filename and filename.endswith('.js') and 'backend' not in filename and 'routes' not in filename:
             return """
 Create authentication JavaScript with:
-- Form validation
-- API calls to backend using a base URL constant defined at the top:
-    const API_BASE = 'http://localhost:5000/api';
-  Use this constant for ALL fetch calls (e.g. fetch(`${API_BASE}/auth/signup`, ...)) so the origin is consistent and CORS works correctly.
-- Token storage (localStorage)
-- Redirect after login/signup
-- Error handling with user-friendly messages
-- Loading states
+- A single base URL constant at the very top:
+    const API_BASE = window.location.origin + '/api';
+  Use this for ALL fetch calls so the app works both locally and on Render without changes.
+- Form validation before submitting
+- fetch() calls to ${API_BASE}/auth/login and ${API_BASE}/auth/signup
+- JWT token stored in localStorage after successful auth
+- Redirect to dashboard after login/signup
+- Redirect to login if token missing on protected pages
+- User-friendly error messages shown in the DOM
+- Loading / disabled button state while request is in flight
 """
         elif 'dashboard' in filename:
             return """
@@ -102,30 +104,36 @@ Create JavaScript with:
 - Any interactive features
 """
     
-    elif filename == 'server.js':
+    elif filename == 'backend/server.js' or filename == 'server.js':
         return """
-Create Express.js server with:
-- Express setup and middleware
-- CORS configuration: use the 'cors' package and allow ALL origins with:
-    app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
-  This is critical so that browsers (including Live Server on port 5500) can reach the API.
-- Body parser: app.use(express.json()) and app.use(express.urlencoded({ extended: true }))
-- Routes import
-- Database connection
-- Error handling
-- Port configuration (default 5000)
-- Start server
+Create a production-ready Express.js server. STRICT RULES:
+
+1. FIRST line: require('dotenv').config();
+2. Use: const PORT = process.env.PORT || 5000;
+3. MongoDB: mongoose.connect(process.env.MONGO_URI) — NEVER use hardcoded URIs.
+4. CORS — allow all origins:
+   app.use(cors({ origin: '*', methods: ['GET','POST','PUT','DELETE','OPTIONS'], allowedHeaders: ['Content-Type','Authorization'] }));
+5. Static files: app.use(express.static('public'));
+6. Body parsers: app.use(express.json()); app.use(express.urlencoded({ extended: true }));
+7. Mount routes under /api/auth and /api/users.
+8. Global error handler middleware at the bottom.
+9. Startup logs:
+   console.log(`Server running on port ${PORT}`);
+   console.log('MongoDB connected');
+10. Do NOT use nodemon — only 'node backend/server.js' in production.
 """
     
     elif 'routes' in filename:
         return """
-Create Express routes with:
-- Route definitions
-- Request validation
-- Business logic
-- Error handling
-- Response formatting
-- Status codes
+Create Express route file with:
+- Use express.Router()
+- Import controller or write inline logic
+- Use process.env.JWT_SECRET for JWT signing/verification (NEVER hardcode)
+- Password hashing with bcryptjs (saltRounds=10)
+- Return consistent JSON: { success: true/false, data: {}, message: '' }
+- Proper HTTP status codes (200, 201, 400, 401, 404, 500)
+- try/catch on every async handler with next(err)
+- For auth routes: POST /signup, POST /login, GET /me (protected)
 """
     
     elif 'models' in filename:
@@ -142,19 +150,23 @@ Create Mongoose model with:
     elif filename == 'package.json':
         return """
 Create package.json with:
-- Project name and version
-- Dependencies: express, mongoose, bcrypt, jsonwebtoken, dotenv, cors
-- Scripts: start, dev (nodemon)
+- "main": "backend/server.js"
+- Scripts MUST be exactly:
+    "start": "node backend/server.js"
+  Do NOT include nodemon or dev scripts.
+- Dependencies: express, mongoose, bcryptjs, jsonwebtoken, dotenv, cors
+- No devDependencies needed
 - Proper formatting
 """
     
     elif filename == '.env.example':
         return """
-Create .env.example with:
-- PORT=5000
-- MONGODB_URI=mongodb://localhost:27017/dbname
-- JWT_SECRET=your_jwt_secret_here
-- Comments explaining each variable
+Create .env.example with exactly these keys (no values for sensitive ones):
+  PORT=5000
+  MONGO_URI=
+  JWT_SECRET=
+Add a comment above each explaining what it is.
+Do NOT create a real .env file.
 """
     
     elif filename == 'README.md':
@@ -169,6 +181,17 @@ Create README.md with:
 - Technologies used
 """
     
+    elif filename == '.gitignore':
+        return """
+Create a .gitignore that excludes:
+  node_modules/
+  .env
+  *.log
+  .DS_Store
+  dist/
+  build/
+"""
+
     elif filename.endswith('.sql'):
         return """
 Create SQL schema with:
@@ -341,32 +364,41 @@ CRITICAL REQUIREMENTS:
     
     if needs_backend:
         prompt += """
-6. BACKEND IMPLEMENTATION:
-   - Express.js framework
-   - RESTful API structure
-   - Proper error handling
-   - Input validation
-   - Security best practices (helmet, cors)
-   - Environment variables for sensitive data
+6. BACKEND — PRODUCTION RULES (Render-deployable):
+   a. require('dotenv').config() MUST be the first line of backend/server.js.
+   b. Port: const PORT = process.env.PORT || 5000;
+   c. MongoDB: mongoose.connect(process.env.MONGO_URI) — NEVER mongodb://127.0.0.1 or any hardcoded URI.
+   d. Serve frontend: app.use(express.static('public'));
+   e. CORS: allow all origins (see server.js instructions).
+   f. Deploy commands for Render:
+      - Build command: npm install
+      - Start command: npm start   (which runs: node backend/server.js)
+   g. Do NOT use nodemon anywhere.
+   h. Never create a real .env file — only .env.example.
 
-7. API ENDPOINTS (example structure):
-   POST /api/auth/signup - Register new user
-   POST /api/auth/login - Login user
-   GET /api/auth/me - Get current user
-   PUT /api/users/:id - Update user
-   
-   All responses should use JSON format:
-   { "success": true/false, "data": {}, "message": "" }
+7. API ENDPOINTS:
+   POST /api/auth/signup  — register, return JWT
+   POST /api/auth/login   — login, return JWT
+   GET  /api/auth/me      — return current user (protected)
+   PUT  /api/users/:id    — update user (protected)
+
+   All responses: { "success": true/false, "data": {}, "message": "" }
+
+8. FRONTEND API CALLS:
+   All fetch() calls MUST use:
+     const API_BASE = window.location.origin + '/api';
+   This ensures the same code works locally (http://localhost:5000) and on Render (https://yourapp.onrender.com) without any changes.
 """
     
     if needs_database:
         prompt += """
-8. DATABASE:
-   - MongoDB with Mongoose
-   - Clear schema definitions
-   - Validation rules
-   - Indexes on frequently queried fields
-   - Timestamps (createdAt, updatedAt)
+9. DATABASE — MongoDB Atlas:
+   - Use Mongoose with process.env.MONGO_URI (Atlas connection string).
+   - NEVER use mongodb://127.0.0.1 or any local URI.
+   - Database name should be derived from the project name (e.g. myapp-db).
+   - Schemas must include: required fields, validation, timestamps: true.
+   - Add indexes on frequently queried fields (e.g. email).
+   - Do NOT assume the database or collections already exist.
 """
     
     prompt += """

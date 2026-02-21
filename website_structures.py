@@ -65,25 +65,21 @@ def get_blog_structure():
     }
 
 def get_webapp_structure():
-    """Web application with authentication (frontend + backend)"""
+    """Web application with authentication (frontend + backend, Render-deployable)"""
     return {
         'files': [
-            # Frontend - Public
+            # Frontend - all served as static from public/
             'public/index.html',
             'public/login.html',
             'public/signup.html',
+            'public/dashboard.html',
             'public/css/style.css',
             'public/css/auth.css',
-            'public/js/auth.js',
+            'public/css/dashboard.css',
             'public/js/main.js',
-            
-            # Frontend - Protected (after login)
-            'app/dashboard.html',
-            'app/profile.html',
-            'app/settings.html',
-            'app/css/dashboard.css',
-            'app/js/dashboard.js',
-            
+            'public/js/auth.js',
+            'public/js/dashboard.js',
+
             # Backend
             'backend/server.js',
             'backend/routes/auth.js',
@@ -91,15 +87,14 @@ def get_webapp_structure():
             'backend/models/User.js',
             'backend/middleware/auth.js',
             'backend/config/db.js',
-            'backend/utils/validation.js',
-            
-            # Config
+
+            # Config / deployment
             'package.json',
             '.env.example',
+            '.gitignore',
             'README.md',
-            'database/schema.sql'
         ],
-        'description': 'Full-stack web application with authentication'
+        'description': 'Production-ready full-stack web application with authentication (Render-deployable)'
     }
 
 def get_ecommerce_structure():
