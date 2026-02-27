@@ -753,7 +753,12 @@ def generate_and_push_to_github():
         # STEP 2: Push to GitHub
         print("\nStep 2/3: Pushing to GitHub...")
         github_mgr = GitHubManager()
-        github_result = github_mgr.create_and_push(user_description, files)
+        github_result = github_mgr.create_and_push(
+            user_description,
+            files,
+            branding=branding,
+            structure_info=structure_info,
+        )
         
         if not github_result['success']:
             return jsonify({
