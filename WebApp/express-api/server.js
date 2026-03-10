@@ -29,6 +29,9 @@ app.use(express.static(path.join(__dirname, "..")));
 app.get('/homepage', async (req, res) => {
   res.sendFile(path.join(__dirname, '../Index.html'));
 });
+app.get('/homepage/dashboard', async (req, res) => {
+  res.sendFile(path.join(__dirname, '../Dashboard/Dashboard.html'));
+});
 app.get('/health', async (_req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK}/health`, { timeout: 5000 });
