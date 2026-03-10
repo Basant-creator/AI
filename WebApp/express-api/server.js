@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const axios   = require('axios');
-
+const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT            || 3000;
 const FLASK = process.env.FLASK_BASE_URL || 'http://localhost:5000';
@@ -24,6 +24,11 @@ app.use((req, _res, next) => {
  * Forwards to Flask GET /health
  * Returns Flask's own health payload so operators have a single status call.
  */
+app.use(express.static(path.join(__dirname, "..")));
+
+app.get('/homepage', async (req, res) => {
+  res.sendFile(path.join(__dirname, '../Index.html'));
+});
 app.get('/health', async (_req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK}/health`, { timeout: 5000 });
