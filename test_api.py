@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 load_dotenv()
 
@@ -16,19 +16,18 @@ else:
 
 # Try to configure and list models
 try:
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     print("\n✓ API configured successfully")
     
     # List available models
-    print("\nAvailable models:")
-    for model in genai.list_models():
-        if 'generateContent' in model.supported_generation_methods:
+    print("\nAvailable Gemini Models:")
+    for model in client.models.list():
+        if 'generateContent' in model.supported_actions:
             print(f"  - {model.name}")
     
     # Try a simple generation
     print("\nTesting model...")
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content("Say hello!")
+    response = client.models.generate_content(model='gemini-2.5-flash', contents='Say hello!')
     print(f"✓ Test successful! Response: {response.text}")
     
 except Exception as e:
@@ -36,4 +35,4 @@ except Exception as e:
     print("\nPossible issues:")
     print("1. Invalid API key")
     print("2. API key doesn't have permissions")
-    print("3. Outdated google-generativeai library")
+    print("3. Outdated google-genai library")

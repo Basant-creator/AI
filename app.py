@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import google.generativeai as genai
+from google import genai
 import os
 from dotenv import load_dotenv
 import re
@@ -25,8 +25,7 @@ if not api_key:
     exit(1)
 
 try:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    client = genai.Client(api_key=api_key)
     print("✓ Gemini API configured successfully")
 except Exception as e:
     print(f"\n✗ Error configuring Gemini API: {e}")
@@ -621,7 +620,7 @@ def generate_website():
         print(f"Generating {project_type} project for: {user_description}")
         
         # Call Gemini API
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         generated_text = response.text
         
         # Parse files from response
@@ -731,7 +730,7 @@ def generate_and_push_to_github():
                 contact
             )
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         generated_text = response.text
         
         # Parse files
