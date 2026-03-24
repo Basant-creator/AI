@@ -30,7 +30,7 @@ app.get('/homepage', async (req, res) => {
   res.sendFile(path.join(__dirname, '../Index.html'));
 });
 app.get('/homepage/dashboard', async (req, res) => {
-  res.sendFile(path.join(__dirname, '../Dashboard/Dashboard.html'));
+  res.sendFile(path.join(__dirname, '../DashBoard/DashBoard.html'));
 });
 app.get('/health', async (_req, res) => {
   try {
@@ -73,12 +73,15 @@ app.post('/generate-site', async (req, res) => {
  * Expected body:
  *   {
  *     "description": "...",
- *     "type": "vanilla",
- *     "github_token": "ghp_...",   // optional — falls back to Flask's own env var
- *     "make_private": false
+ *     "type": "vanilla" | "react",
+ *     "website_type": "landing_page" | "multi_page" | "portfolio" | "blog" | "web_application" | "ecommerce" | "",  // optional, auto-detects if empty
+ *     "github_token": "ghp_...",   // required unless user has saved encrypted token
+ *     "make_private": false,
+ *     ... other fields (colors, social, contact)
  *   }
  *
  * Flask generates the site AND creates/pushes a GitHub repo.
+ * If website_type is provided, uses that template; otherwise auto-detects from description.
  * Returns { success, repo_url, files } (or Flask's native shape).
  */
 app.post('/generate-and-deploy', async (req, res) => {
@@ -142,6 +145,20 @@ app.get('/auth/me', async (req, res) => {
   }
 });
 
+app.get('/auth/profile', async (req, res) => {
+  try {
+    const flaskRes = await axios.get(`${FLASK}/auth/profile`, {
+      timeout: 10_000,
+      headers: {
+        Authorization: req.headers.authorization || '',
+      },
+    });
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-profile');
+  }
+});
+
 app.put('/auth/github-token', async (req, res) => {
   try {
     const flaskRes = await axios.put(`${FLASK}/auth/github-token`, req.body, {
@@ -202,5 +219,5 @@ function forwardError(err, res, route) {
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
   console.log(`Flask AI engine  →  ${FLASK}`);
-  console.log('Routes: GET /health | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | PUT /auth/github-token');
+  console.log('Routes: GET /health | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
 });

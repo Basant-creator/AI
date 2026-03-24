@@ -14,7 +14,7 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
 from cryptography.fernet import Fernet, InvalidToken
-from website_structures import determine_website_structure
+from website_structures import determine_website_structure, get_structure_by_type
 from prompt_builder import get_structured_prompt
 from github_manager import GitHubManager
 # Load environment variables from .env file
@@ -184,11 +184,13 @@ def require_auth(func):
 
 
 def _build_user_response(user_doc):
+    history = user_doc.get('generation_history', [])
     return {
         'id': str(user_doc['_id']),
         'username': user_doc.get('username', ''),
         'gmail': user_doc.get('email', ''),
         'has_github_token': bool(user_doc.get('github_token_encrypted')),
+        'generation_count': len(history),
         'token_last_updated_at': user_doc.get('token_last_updated_at'),
         'created_at': user_doc.get('created_at'),
         'updated_at': user_doc.get('updated_at'),
@@ -228,6 +230,7 @@ def signup():
             'email_lower': email.lower(),
             'password_hash': _hash_password(password),
             'github_token_encrypted': _encrypt_token(github_token),
+            'generation_history': [],
             'token_last_updated_at': now,
             'created_at': now,
             'updated_at': now,
@@ -292,6 +295,21 @@ def get_me(current_user):
     return jsonify({
         'success': True,
         'user': _build_user_response(current_user)
+    })
+
+
+@app.route('/auth/profile', methods=['GET'])
+@require_auth
+def get_profile(current_user):
+    """Get authenticated user's profile plus generation history."""
+    history = current_user.get('generation_history', [])
+    # Keep most recent entries first.
+    history_sorted = sorted(history, key=lambda x: x.get('created_at', ''), reverse=True)
+
+    return jsonify({
+        'success': True,
+        'user': _build_user_response(current_user),
+        'history': history_sorted,
     })
 
 
@@ -1024,9 +1042,24 @@ def generate_and_push_to_github():
         
         # STEP 0: Determine website structure intelligently
         print("\nStep 0/3: Analyzing requirements...")
-        structure_info = determine_website_structure(user_description)
         
-        print(f"✓ Detected: {structure_info['type'].upper()}")
+        # Check if user selected a specific template
+        requested_type = data.get('website_type', '').strip().lower()
+        if requested_type:
+            # Use user-selected template
+            structure_info = get_structure_by_type(requested_type)
+            if structure_info:
+                print(f"✓ Using user-selected template: {structure_info['type'].upper()}")
+            else:
+                # Fall back to auto-detection if template is invalid
+                print(f"⚠ Unknown template '{requested_type}', auto-detecting...")
+                structure_info = determine_website_structure(user_description)
+                print(f"✓ Detected: {structure_info['type'].upper()}")
+        else:
+            # Auto-detect based on description
+            structure_info = determine_website_structure(user_description)
+            print(f"✓ Detected: {structure_info['type'].upper()}")
+        
         print(f"  Files to generate: {len(structure_info['files'])}")
         print(f"  Needs backend: {structure_info.get('needs_backend', False)}")
         print(f"  Needs database: {structure_info.get('needs_database', False)}")
@@ -1066,10 +1099,10 @@ def generate_and_push_to_github():
         for filename in sorted(files.keys()):
             print(f"    - {filename}")
         
-        # Resolve GitHub token source: request payload > authenticated user's saved token > env fallback.
+        # Resolve GitHub token source: request payload > authenticated user's saved token.
         payload_token = data.get('github_token', '').strip()
         save_token = bool(data.get('save_token', False))
-        token_source = 'env-default'
+        token_source = None
         resolved_token = None
 
         current_user, auth_error = _get_current_user(optional=True)
@@ -1088,6 +1121,12 @@ def generate_and_push_to_github():
                 token_source = 'saved-user-token'
             except InvalidToken:
                 return jsonify({'success': False, 'error': 'Stored GitHub token is unreadable. Please update your token.'}), 500
+
+        if not resolved_token:
+            return jsonify({
+                'success': False,
+                'error': 'GitHub access token is required. Provide github_token in the request or save one to your account.'
+            }), 400
 
         # Optionally persist a newly provided token for authenticated users.
         if payload_token and current_user and save_token:
@@ -1118,6 +1157,30 @@ def generate_and_push_to_github():
                 'success': False,
                 'error': f"GitHub error: {github_result['error']}"
             }), 500
+
+        if current_user and users_collection is not None:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            history_entry = {
+                'created_at': now,
+                'description': user_description,
+                'project_type': project_type,
+                'repo_name': github_result.get('repo_name', ''),
+                'repo_url': github_result.get('repo_url', ''),
+                'file_count': len(files),
+                'structure_type': structure_info.get('type', ''),
+            }
+            users_collection.update_one(
+                {'_id': current_user['_id']},
+                {
+                    '$set': {'updated_at': now},
+                    '$push': {
+                        'generation_history': {
+                            '$each': [history_entry],
+                            '$slice': -30,
+                        }
+                    }
+                }
+            )
         
         print(f"✓ Pushed to: {github_result['repo_url']}")
         
@@ -1164,5 +1227,6 @@ if __name__ == '__main__':
     print("Available endpoints:")
     print("  POST /generate-website - Generate website files")
     print("  GET  /health - Health check")
+    print("  GET  /auth/profile - Authenticated profile with generation history")
     print("  POST /generate-and-push-to-github - Generate website and push to GitHub")
     app.run(debug=True, port=5000)

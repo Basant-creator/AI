@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BobAI Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/DashBoard/dashboard.css">
+    <script src="/DashBoard/dashboard.js" defer></script>
+</head>
+<body>
+    <div class="dashboard-bg-glow"></div>
+
+    <header class="dashboard-header">
+        <a class="brand-link" href="/Index.html">BobAI</a>
+        <nav class="header-actions">
+            <a class="header-link" href="/Index.html">Main Page</a>
+            <button id="logoutBtn" class="logout-btn" type="button">Logout</button>
+        </nav>
+    </header>
+
+    <main class="dashboard-main">
+        <section class="dashboard-hero">
+            <p class="hero-eyebrow">Website Builder</p>
+            <h1>Minimal Dashboard,<br>Maximum Build Speed</h1>
+            <p class="hero-subtext">Fill the form, generate your website code, and push directly to your GitHub repository.</p>
+        </section>
+
+        <section class="metrics-grid">
+            <article class="metric-card">
+                <p class="metric-label">Mode</p>
+                <h2 class="metric-value" id="modeMetric">Vanilla</h2>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Auth Status</p>
+                <h2 class="metric-value" id="authMetric">Guest</h2>
+            </article>
+            <article class="metric-card">
+                <p class="metric-label">Last Result</p>
+                <h2 class="metric-value" id="resultMetric">Idle</h2>
+            </article>
+        </section>
+
+        <section class="floating-card-wrap">
+            <article class="floating-form-card">
+                <div class="card-head">
+                    <h3>Build Configuration</h3>
+                    <p>Provide website details required by the API pipeline.</p>
+                </div>
+
+                <form id="dashboardForm" class="dashboard-form">
+                    <div class="grid two">
+                        <div class="form-group">
+                            <label for="projectType">Project Type</label>
+                            <select id="projectType" name="type">
+                                <option value="vanilla">Vanilla (HTML/CSS/JS)</option>
+                                <option value="react">React</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="websiteTemplate">Website Template</label>
+                            <select id="websiteTemplate" name="website_type">
+                                <option value="">Auto-Detect (based on description)</option>
+                                <option value="landing_page">Landing Page (Simple & Fast)</option>
+                                <option value="multi_page">Multi-Page (With Navigation)</option>
+                                <option value="portfolio">Portfolio (Project Showcase)</option>
+                                <option value="blog">Blog (Articles & Posts)</option>
+                                <option value="web_application">Web Application (With Auth & Backend)</option>
+                                <option value="ecommerce">E-Commerce (Shop & Cart)</option>
+                            </select>
+                            <small class="field-help">Select a template or leave blank to auto-detect from description.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="companyName">Company Name</label>
+                        <input id="companyName" name="company_name" type="text" placeholder="Acme Studio" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Website Description</label>
+                        <textarea id="description" name="description" rows="4" placeholder="Describe your website goals, sections, and features" required></textarea>
+                    </div>
+
+                    <div class="grid two">
+                        <div class="form-group">
+                            <label for="tagline">Tagline</label>
+                            <input id="tagline" name="tagline" type="text" placeholder="Designing digital first impressions">
+                        </div>
+                        <div class="form-group">
+                            <label for="githubToken">GitHub Access Token</label>
+                            <input id="githubToken" name="github_token" type="password" placeholder="Leave empty to use saved token">
+                            <small id="githubTokenHelp" class="field-help">Optional if your account already has a saved token.</small>
+                        </div>
+                    </div>
+
+                    <div class="grid two">
+                        <div class="form-group">
+                            <label for="primaryColor">Primary Color</label>
+                            <input id="primaryColor" name="primary_color" type="text" placeholder="#ffffff" value="#ffffff">
+                        </div>
+                        <div class="form-group">
+                            <label for="secondaryColor">Secondary Color</label>
+                            <input id="secondaryColor" name="secondary_color" type="text" placeholder="#a0a0a0" value="#a0a0a0">
+                        </div>
+                    </div>
+
+                    <div class="form-divider"></div>
+                    <h4>Social Links</h4>
+                    <div class="grid two">
+                        <div class="form-group"><label for="instagram">Instagram</label><input id="instagram" name="instagram" type="text" placeholder="@brand"></div>
+                        <div class="form-group"><label for="twitter">Twitter</label><input id="twitter" name="twitter" type="text" placeholder="@brand"></div>
+                        <div class="form-group"><label for="linkedin">LinkedIn</label><input id="linkedin" name="linkedin" type="text" placeholder="company/brand"></div>
+                        <div class="form-group"><label for="facebook">Facebook</label><input id="facebook" name="facebook" type="text" placeholder="brand.page"></div>
+                        <div class="form-group"><label for="youtube">YouTube</label><input id="youtube" name="youtube" type="text" placeholder="@brand"></div>
+                    </div>
+
+                    <div class="form-divider"></div>
+                    <h4>Contact Details</h4>
+                    <div class="grid two">
+                        <div class="form-group"><label for="email">Email</label><input id="email" name="email" type="email" placeholder="hello@brand.com"></div>
+                        <div class="form-group"><label for="phone">Phone</label><input id="phone" name="phone" type="text" placeholder="+1 555 0100"></div>
+                        <div class="form-group"><label for="address">Address</label><input id="address" name="address" type="text" placeholder="123 Main Street"></div>
+                        <div class="form-group"><label for="city">City</label><input id="city" name="city" type="text" placeholder="San Francisco"></div>
+                        <div class="form-group"><label for="state">State</label><input id="state" name="state" type="text" placeholder="CA"></div>
+                    </div>
+
+                    <label class="checkbox-row" for="saveToken">
+                        <input id="saveToken" name="save_token" type="checkbox">
+                        Save this token in your account for future deployments
+                    </label>
+
+                    <button id="submitBtn" class="submit-btn" type="submit">Generate and Push to GitHub</button>
+                </form>
+            </article>
+
+            <aside class="result-panel" id="resultPanel">
+                <h3>Run Output</h3>
+                <p class="result-hint">Your generation result appears here.</p>
+                <div id="resultContent" class="result-content">No runs yet.</div>
+
+                <div class="profile-section" id="profileSection">
+                    <h3>User Profile</h3>
+                    <p class="result-hint" id="profileSummary">Login to view your profile and website history.</p>
+                    <div id="historyList" class="history-list">
+                        <p class="history-empty">No history yet.</p>
+                    </div>
+                </div>
+            </aside>
+        </section>
+    </main>
+</body>
+</html>

@@ -229,3 +229,81 @@ def determine_website_structure(description):
             'needs_backend': False,
             'needs_database': False
         }
+
+
+def get_structure_by_type(website_type):
+    """
+    Get structure info directly by type name (used when user selects from dropdown)
+    Falls back to auto-detection if type is unknown or empty
+    """
+    if not website_type or not isinstance(website_type, str):
+        return None
+    
+    website_type = website_type.lower().strip()
+    
+    if website_type == 'landing_page':
+        structure = get_landing_page_structure()
+        return {
+            'type': 'landing_page',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': False,
+            'needs_database': False
+        }
+    
+    elif website_type == 'multi_page':
+        structure = get_multi_page_structure()
+        return {
+            'type': 'multi_page',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': False,
+            'needs_database': False
+        }
+    
+    elif website_type == 'portfolio':
+        structure = get_portfolio_structure()
+        return {
+            'type': 'portfolio',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': False,
+            'needs_database': False
+        }
+    
+    elif website_type == 'blog':
+        structure = get_blog_structure()
+        return {
+            'type': 'blog',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': False,
+            'needs_database': False
+        }
+    
+    elif website_type == 'web_application':
+        structure = get_webapp_structure()
+        return {
+            'type': 'web_application',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': True,
+            'needs_database': True,
+            'backend_framework': 'express',
+            'database_type': 'mongodb'
+        }
+    
+    elif website_type == 'ecommerce':
+        structure = get_ecommerce_structure()
+        return {
+            'type': 'ecommerce',
+            'files': structure['files'],
+            'description': structure['description'],
+            'needs_backend': True,
+            'needs_database': True,
+            'backend_framework': 'express',
+            'database_type': 'mongodb'
+        }
+    
+    # Unknown type - return None (will trigger auto-detection)
+    return None
