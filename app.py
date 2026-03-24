@@ -349,22 +349,31 @@ def update_github_token(current_user):
 
 # Configure Gemini API
 api_key = os.getenv('GEMINI_API_KEY')
-if not api_key:
-    print("\n" + "="*60)
-    print("ERROR: GEMINI_API_KEY not found!")
-    print("="*60)
-    print("Please create a .env file with:")
-    print("GEMINI_API_KEY=your_api_key_here")
-    print("\nGet your API key from: https://makersuite.google.com/app/apikey")
-    print("="*60 + "\n")
-    exit(1)
+client = None
+gemini_init_error = None
 
-try:
-    client = genai.Client(api_key=api_key)
-    print("✓ Gemini API configured successfully")
-except Exception as e:
-    print(f"\n✗ Error configuring Gemini API: {e}")
-    exit(1)
+if not api_key:
+    gemini_init_error = 'GEMINI_API_KEY is not configured'
+    print("\n" + "="*60)
+    print("WARNING: GEMINI_API_KEY not found")
+    print("The API will boot, but generation endpoints will return 503.")
+    print("="*60 + "\n")
+else:
+    try:
+        client = genai.Client(api_key=api_key)
+        print("✓ Gemini API configured successfully")
+    except Exception as e:
+        gemini_init_error = f"Gemini initialization failed: {e}"
+        print(f"\n✗ {gemini_init_error}")
+
+
+def _require_gemini_client():
+    if client is None:
+        return False, jsonify({
+            'success': False,
+            'error': gemini_init_error or 'Gemini client is not configured'
+        }), 503
+    return True, None, None
 
 def parse_files_from_response(text):
     """
@@ -920,6 +929,10 @@ def generate_website():
     }
     """
     try:
+        ok, error_response, status = _require_gemini_client()
+        if not ok:
+            return error_response, status
+
         data = request.json
         
         # Validate input
@@ -1009,6 +1022,10 @@ def generate_and_push_to_github():
     Supports: landing pages, multi-page, full-stack apps
     """
     try:
+        ok, error_response, status = _require_gemini_client()
+        if not ok:
+            return error_response, status
+
         data = request.json
         
         if not data:
