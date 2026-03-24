@@ -7,3 +7,4 @@ pymongo
 cryptography
 bcrypt
 PyJWT
+gunicorn
