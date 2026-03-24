@@ -1,6 +1,4 @@
-const API_BASE = window.location.hostname.endsWith('vercel.app')
-    ? 'https://bob-ai-1.onrender.com'
-    : '';
+const API_BASE = '';
 const AUTH_STORAGE_KEY = 'bobai_session_token';
 const profileState = {
     authenticated: false,
