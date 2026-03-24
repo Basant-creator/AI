@@ -30,7 +30,7 @@ app.get('/homepage', async (req, res) => {
   res.sendFile(path.join(__dirname, '../index.html'));
 });
 app.get('/homepage/dashboard', async (req, res) => {
-  res.sendFile(path.join(__dirname, '../DashBoard/DashBoard.html'));
+  res.sendFile(path.join(__dirname, '../DashBoard/dashboard.html'));
 });
 app.get('/health', async (_req, res) => {
   try {
