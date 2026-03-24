@@ -27,7 +27,7 @@ app.use((req, _res, next) => {
 app.use(express.static(path.join(__dirname, "..")));
 
 app.get('/homepage', async (req, res) => {
-  res.sendFile(path.join(__dirname, '../Index.html'));
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 app.get('/homepage/dashboard', async (req, res) => {
   res.sendFile(path.join(__dirname, '../DashBoard/DashBoard.html'));
