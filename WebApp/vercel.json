@@ -2,19 +2,19 @@
   "rewrites": [
     {
       "source": "/auth/(.*)",
-      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/auth/$1"
+      "destination": "https://bob-ai-1.onrender.com/auth/$1"
     },
     {
       "source": "/generate-site",
-      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/generate-site"
+      "destination": "https://bob-ai-1.onrender.com/generate-site"
     },
     {
       "source": "/generate-and-deploy",
-      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/generate-and-deploy"
+      "destination": "https://bob-ai-1.onrender.com/generate-and-deploy"
     },
     {
       "source": "/health",
-      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/health"
+      "destination": "https://bob-ai-1.onrender.com/health"
     }
   ]
 }
