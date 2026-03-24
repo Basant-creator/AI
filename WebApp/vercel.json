@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/auth/(.*)",
+      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/auth/$1"
+    },
+    {
+      "source": "/generate-site",
+      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/generate-site"
+    },
+    {
+      "source": "/generate-and-deploy",
+      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/generate-and-deploy"
+    },
+    {
+      "source": "/health",
+      "destination": "https://YOUR-EXPRESS-SERVICE.onrender.com/health"
+    }
+  ]
+}

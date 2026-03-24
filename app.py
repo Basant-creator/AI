@@ -992,6 +992,16 @@ def health_check():
         'message': 'AI Website Generator API is running'
     })
 
+
+@app.route('/', methods=['GET'])
+def root_status():
+    """Root endpoint for platform probes and basic uptime checks."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'AI Website Generator API',
+        'health_path': '/health'
+    })
+
 @app.route('/generate-and-push-to-github', methods=['POST'])
 def generate_and_push_to_github():
     """
@@ -1223,10 +1233,14 @@ def generate_and_push_to_github():
             'error': str(e)
         }), 500
 if __name__ == '__main__':
-    print("Starting Flask server on http://localhost:5000")
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', '5000'))
+
+    print(f"Starting Flask server on http://{host}:{port}")
     print("Available endpoints:")
+    print("  GET  / - Root status")
     print("  POST /generate-website - Generate website files")
     print("  GET  /health - Health check")
     print("  GET  /auth/profile - Authenticated profile with generation history")
     print("  POST /generate-and-push-to-github - Generate website and push to GitHub")
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host=host, port=port)
