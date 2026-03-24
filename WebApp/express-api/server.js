@@ -86,11 +86,73 @@ app.post('/generate-and-deploy', async (req, res) => {
     const flaskRes = await axios.post(
       `${FLASK}/generate-and-push-to-github`,
       req.body,
-      { timeout: 180_000 }, // generation + GitHub push — allow 3 min
+      {
+        timeout: 180_000,
+        headers: {
+          Authorization: req.headers.authorization || '',
+        },
+      }, // generation + GitHub push — allow 3 min
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
     forwardError(err, res, 'generate-and-deploy');
+  }
+});
+
+/**
+ * Auth routes proxy to Flask auth service.
+ */
+app.post('/auth/signup', async (req, res) => {
+  try {
+    const flaskRes = await axios.post(
+      `${FLASK}/auth/signup`,
+      req.body,
+      { timeout: 15_000 },
+    );
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-signup');
+  }
+});
+
+app.post('/auth/login', async (req, res) => {
+  try {
+    const flaskRes = await axios.post(
+      `${FLASK}/auth/login`,
+      req.body,
+      { timeout: 15_000 },
+    );
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-login');
+  }
+});
+
+app.get('/auth/me', async (req, res) => {
+  try {
+    const flaskRes = await axios.get(`${FLASK}/auth/me`, {
+      timeout: 10_000,
+      headers: {
+        Authorization: req.headers.authorization || '',
+      },
+    });
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-me');
+  }
+});
+
+app.put('/auth/github-token', async (req, res) => {
+  try {
+    const flaskRes = await axios.put(`${FLASK}/auth/github-token`, req.body, {
+      timeout: 10_000,
+      headers: {
+        Authorization: req.headers.authorization || '',
+      },
+    });
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-github-token');
   }
 });
 
@@ -140,5 +202,5 @@ function forwardError(err, res, route) {
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
   console.log(`Flask AI engine  →  ${FLASK}`);
-  console.log('Routes: GET /health | POST /generate-site | POST /generate-and-deploy');
+  console.log('Routes: GET /health | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | PUT /auth/github-token');
 });

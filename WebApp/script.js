@@ -3,7 +3,64 @@
    ============================================================ */
 
 // ── Dropdown management ──────────────────────────────────────
-const DROPDOWN_IDS = ['loginDropdown', 'signupDropdown'];
+const DROPDOWN_IDS = ['loginDropdown', 'signupDropdown', 'tokenDropdown'];
+const API_BASE = '';
+const AUTH_STORAGE_KEY = 'bobai_session_token';
+
+function getSessionToken() {
+    return localStorage.getItem(AUTH_STORAGE_KEY) || '';
+}
+
+function setSessionToken(token) {
+    if (token) {
+        localStorage.setItem(AUTH_STORAGE_KEY, token);
+    } else {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+}
+
+function authHeaders() {
+    const token = getSessionToken();
+    if (!token) return { 'Content-Type': 'application/json' };
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
+}
+
+function updateAuthUi(isLoggedIn) {
+    const loginBtn = document.querySelector('#loginDropdown .nav-btn');
+    const signupBtn = document.querySelector('#signupDropdown .nav-btn');
+    const accountBtn = document.getElementById('accountBtn');
+
+    if (loginBtn) loginBtn.style.display = isLoggedIn ? 'none' : '';
+    if (signupBtn) signupBtn.style.display = isLoggedIn ? 'none' : '';
+    if (accountBtn) accountBtn.style.display = isLoggedIn ? '' : 'none';
+}
+
+async function hydrateSession() {
+    const token = getSessionToken();
+    if (!token) {
+        updateAuthUi(false);
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+            method: 'GET',
+            headers: authHeaders(),
+        });
+        if (!res.ok) {
+            setSessionToken('');
+            updateAuthUi(false);
+            return;
+        }
+        updateAuthUi(true);
+    } catch (_err) {
+        setSessionToken('');
+        updateAuthUi(false);
+    }
+}
 
 function toggleDropdown(id) {
     const isOpen = document.getElementById(id).classList.contains('open');
@@ -74,6 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // but we ensure the section is visible first.
         heroContent.style.visibility = 'visible';
     }
+
+    hydrateSession();
 });
 
 
@@ -116,21 +175,116 @@ function showToast(message, duration = 3000) {
 
 
 // ── Form handlers ─────────────────────────────────────────────
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
-    closeAllDropdowns();
-    showToast('✓ Logged in successfully! Welcome back.');
+
+    const identifier = document.getElementById('loginIdentifier')?.value.trim() || '';
+    const password = document.getElementById('loginPassword')?.value || '';
+
+    if (!identifier || !password) {
+        showToast('⚠ Enter your username/gmail and password.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: identifier, gmail: identifier, password }),
+        });
+
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+            showToast(`⚠ ${payload.error || 'Login failed'}`);
+            return;
+        }
+
+        setSessionToken(payload.token || '');
+        updateAuthUi(true);
+        closeAllDropdowns();
+        showToast('✓ Logged in successfully!');
+        e.target.reset();
+    } catch (_err) {
+        showToast('⚠ Login failed. Please try again.');
+    }
 }
 
-function handleSignup(e) {
+async function handleSignup(e) {
     e.preventDefault();
-    const inputs = e.target.querySelectorAll('input[type="password"]');
-    if (inputs.length >= 2 && inputs[0].value !== inputs[1].value) {
+
+    const username = document.getElementById('signupUsername')?.value.trim() || '';
+    const gmail = document.getElementById('signupEmail')?.value.trim() || '';
+    const password = document.getElementById('signupPassword')?.value || '';
+    const confirmPassword = document.getElementById('signupConfirmPassword')?.value || '';
+    const githubToken = document.getElementById('signupGithubToken')?.value.trim() || '';
+
+    if (password !== confirmPassword) {
         showToast('⚠ Passwords do not match. Please try again.');
         return;
     }
-    closeAllDropdowns();
-    showToast('🎉 Account created! Welcome to BobAI.');
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username,
+                gmail,
+                password,
+                github_token: githubToken,
+            }),
+        });
+
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+            showToast(`⚠ ${payload.error || 'Signup failed'}`);
+            return;
+        }
+
+        setSessionToken(payload.token || '');
+        updateAuthUi(true);
+        closeAllDropdowns();
+        showToast('🎉 Account created and logged in.');
+        e.target.reset();
+    } catch (_err) {
+        showToast('⚠ Signup failed. Please try again.');
+    }
+}
+
+async function handleTokenUpdate(e) {
+    e.preventDefault();
+
+    const token = getSessionToken();
+    if (!token) {
+        showToast('⚠ Please login first.');
+        return;
+    }
+
+    const githubToken = document.getElementById('updateGithubToken')?.value.trim() || '';
+    if (!githubToken) {
+        showToast('⚠ Enter a GitHub token first.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/github-token`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({ github_token: githubToken }),
+        });
+
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+            showToast(`⚠ ${payload.error || 'Token update failed'}`);
+            return;
+        }
+
+        closeAllDropdowns();
+        showToast('✓ GitHub token updated securely.');
+        e.target.reset();
+    } catch (_err) {
+        showToast('⚠ Token update failed. Please try again.');
+    }
 }
 
 function handleContact(e) {

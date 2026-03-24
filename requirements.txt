@@ -3,3 +3,7 @@ google-genai
 python-dotenv
 requests
 PyGithub
+pymongo
+cryptography
+bcrypt
+PyJWT

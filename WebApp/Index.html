@@ -38,12 +38,12 @@
                     </div>
                     <form class="auth-form" onsubmit="handleLogin(event)">
                         <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" placeholder="you@example.com" required>
+                            <label>Username or Gmail</label>
+                            <input id="loginIdentifier" type="text" placeholder="username or you@gmail.com" required>
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="password" placeholder="••••••••" required>
+                            <input id="loginPassword" type="password" placeholder="••••••••" required>
                         </div>
                         <div class="form-row">
                             <label class="checkbox-label">
@@ -70,24 +70,49 @@
                     </div>
                     <form class="auth-form" onsubmit="handleSignup(event)">
                         <div class="form-group">
-                            <label>Full Name</label>
-                            <input type="text" placeholder="John Doe" required>
+                            <label>Username</label>
+                            <input id="signupUsername" type="text" placeholder="john_doe" required>
                         </div>
                         <div class="form-group">
-                            <label>Email</label>
-                            <input type="email" placeholder="you@example.com" required>
+                            <label>Gmail</label>
+                            <input id="signupEmail" type="email" placeholder="you@gmail.com" required>
                         </div>
                         <div class="form-group">
                             <label>Password</label>
-                            <input type="password" placeholder="Min. 8 characters" required>
+                            <input id="signupPassword" type="password" placeholder="Min. 8 characters" required>
                         </div>
                         <div class="form-group">
                             <label>Confirm Password</label>
-                            <input type="password" placeholder="••••••••" required>
+                            <input id="signupConfirmPassword" type="password" placeholder="••••••••" required>
+                        </div>
+                        <div class="form-group">
+                            <label>GitHub Access Token</label>
+                            <input id="signupGithubToken" type="password" placeholder="ghp_xxxxxxxxx" required>
                         </div>
                         <button type="submit" class="form-submit-btn">Create Account</button>
                     </form>
                     <p class="form-footer">Already have an account? <a href="#" onclick="switchDropdown('signupDropdown','loginDropdown')">Login</a></p>
+                </div>
+            </div>
+
+            <!-- GITHUB TOKEN UPDATE DROPDOWN -->
+            <div class="dropdown" id="tokenDropdown">
+                <button id="accountBtn" class="nav-btn btn-outline" onclick="toggleDropdown('tokenDropdown')" style="display:none;">
+                    Account
+                    <span class="btn-arrow">▾</span>
+                </button>
+                <div class="dropdown-panel">
+                    <div class="dropdown-header">
+                        <h3>Update GitHub Token</h3>
+                        <p>Change your encrypted token any time</p>
+                    </div>
+                    <form class="auth-form" onsubmit="handleTokenUpdate(event)">
+                        <div class="form-group">
+                            <label>New GitHub Access Token</label>
+                            <input id="updateGithubToken" type="password" placeholder="ghp_xxxxxxxxx" required>
+                        </div>
+                        <button type="submit" class="form-submit-btn">Update Token</button>
+                    </form>
                 </div>
             </div>
 

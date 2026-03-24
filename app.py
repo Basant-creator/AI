@@ -4,6 +4,16 @@ import os
 from dotenv import load_dotenv
 import re
 import requests
+import base64
+import hashlib
+import datetime
+from functools import wraps
+import bcrypt
+import jwt
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
+from bson.objectid import ObjectId
+from cryptography.fernet import Fernet, InvalidToken
 from website_structures import determine_website_structure
 from prompt_builder import get_structured_prompt
 from github_manager import GitHubManager
@@ -11,6 +21,313 @@ from github_manager import GitHubManager
 load_dotenv()
 
 app = Flask(__name__)
+
+JWT_SECRET = os.getenv('JWT_SECRET', 'change-this-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXP_DAYS = int(os.getenv('JWT_EXP_DAYS', '7'))
+
+
+def _build_fernet():
+    """Create a Fernet instance from TOKEN_ENCRYPTION_KEY if configured."""
+    raw_key = os.getenv('TOKEN_ENCRYPTION_KEY', '').strip()
+    if not raw_key:
+        return None
+
+    try:
+        return Fernet(raw_key.encode('utf-8'))
+    except Exception:
+        # Allow a human-readable secret by deterministically deriving a valid Fernet key.
+        derived = base64.urlsafe_b64encode(hashlib.sha256(raw_key.encode('utf-8')).digest())
+        return Fernet(derived)
+
+
+fernet = _build_fernet()
+
+
+def _strip_mongodb_credentials(uri):
+    """Remove inline credentials from a MongoDB URI, keeping host/query intact."""
+    if '://' not in uri:
+        return uri
+
+    scheme, rest = uri.split('://', 1)
+    if '@' in rest:
+        rest = rest.rsplit('@', 1)[1]
+    return f"{scheme}://{rest}"
+
+
+mongo_uri = os.getenv('MONGODB_URI', '').strip()
+mongo_db_name = os.getenv('MONGODB_DB_NAME', 'ai_website_generator')
+mongo_username = os.getenv('MONGODB_USER', '').strip()
+mongo_password = os.getenv('MONGODB_PASSWORD')
+mongo_auth_db = os.getenv('MONGODB_AUTH_DB', 'admin').strip()
+mongo_client = None
+users_collection = None
+
+if mongo_uri:
+    try:
+        mongo_client_args = {
+            'serverSelectionTimeoutMS': 5000,
+        }
+        connection_uri = mongo_uri
+
+        # Prefer separate credentials when provided so raw special characters in
+        # password (like @) can stay untouched in env vars.
+        if mongo_username and mongo_password:
+            connection_uri = _strip_mongodb_credentials(mongo_uri)
+            mongo_client_args.update({
+                'username': mongo_username,
+                'password': mongo_password,
+                'authSource': mongo_auth_db,
+            })
+
+        mongo_client = MongoClient(connection_uri, **mongo_client_args)
+        mongo_client.admin.command('ping')
+        db = mongo_client[mongo_db_name]
+        users_collection = db['users']
+        users_collection.create_index('username_lower', unique=True)
+        users_collection.create_index('email_lower', unique=True)
+        print(f"✓ MongoDB connected ({mongo_db_name})")
+    except Exception as e:
+        print(f"⚠ MongoDB connection failed: {e}")
+        users_collection = None
+else:
+    print("⚠ MONGODB_URI not set. Auth and saved token features are disabled.")
+
+if not fernet:
+    print("⚠ TOKEN_ENCRYPTION_KEY not set. GitHub token encryption features are disabled.")
+
+
+def _require_auth_dependencies():
+    if users_collection is None:
+        return False, jsonify({'success': False, 'error': 'Database is not configured'}), 503
+    if fernet is None:
+        return False, jsonify({'success': False, 'error': 'Token encryption is not configured'}), 503
+    return True, None, None
+
+
+def _hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def _verify_password(password, password_hash):
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+
+def _encrypt_token(token):
+    return fernet.encrypt(token.encode('utf-8')).decode('utf-8')
+
+
+def _decrypt_token(encrypted_token):
+    return fernet.decrypt(encrypted_token.encode('utf-8')).decode('utf-8')
+
+
+def _create_session_token(user_doc):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    payload = {
+        'sub': str(user_doc['_id']),
+        'username': user_doc['username'],
+        'iat': now,
+        'exp': now + datetime.timedelta(days=JWT_EXP_DAYS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _extract_bearer_token():
+    auth_header = request.headers.get('Authorization', '').strip()
+    if not auth_header.lower().startswith('bearer '):
+        return None
+    token = auth_header[7:].strip()
+    return token or None
+
+
+def _get_current_user(optional=False):
+    if users_collection is None:
+        if optional:
+            return None, None
+        return None, ('Database is not configured', 503)
+
+    token = _extract_bearer_token()
+    if not token:
+        if optional:
+            return None, None
+        return None, ('Missing bearer token', 401)
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get('sub')
+        if not user_id:
+            return None, ('Invalid session token', 401)
+
+        user = users_collection.find_one({'_id': ObjectId(user_id)})
+        if not user:
+            return None, ('User not found', 401)
+
+        return user, None
+    except jwt.ExpiredSignatureError:
+        return None, ('Session expired. Please login again.', 401)
+    except jwt.InvalidTokenError:
+        return None, ('Invalid session token', 401)
+    except Exception:
+        return None, ('Failed to authenticate user', 401)
+
+
+def require_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        user, error = _get_current_user(optional=False)
+        if error:
+            message, status = error
+            return jsonify({'success': False, 'error': message}), status
+        return func(user, *args, **kwargs)
+
+    return wrapper
+
+
+def _build_user_response(user_doc):
+    return {
+        'id': str(user_doc['_id']),
+        'username': user_doc.get('username', ''),
+        'gmail': user_doc.get('email', ''),
+        'has_github_token': bool(user_doc.get('github_token_encrypted')),
+        'token_last_updated_at': user_doc.get('token_last_updated_at'),
+        'created_at': user_doc.get('created_at'),
+        'updated_at': user_doc.get('updated_at'),
+    }
+
+
+@app.route('/auth/signup', methods=['POST'])
+def signup():
+    """Create a user account with encrypted GitHub token."""
+    ok, error_response, status = _require_auth_dependencies()
+    if not ok:
+        return error_response, status
+
+    try:
+        data = request.json or {}
+        username = data.get('username', '').strip()
+        email = data.get('gmail', '').strip() or data.get('email', '').strip()
+        password = data.get('password', '')
+        github_token = data.get('github_token', '').strip()
+
+        if not username:
+            return jsonify({'success': False, 'error': 'Username is required'}), 400
+        if not email:
+            return jsonify({'success': False, 'error': 'Gmail is required'}), 400
+        if '@' not in email:
+            return jsonify({'success': False, 'error': 'Please provide a valid Gmail'}), 400
+        if len(password) < 8:
+            return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
+        if not github_token:
+            return jsonify({'success': False, 'error': 'GitHub access token is required'}), 400
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        user_doc = {
+            'username': username,
+            'username_lower': username.lower(),
+            'email': email,
+            'email_lower': email.lower(),
+            'password_hash': _hash_password(password),
+            'github_token_encrypted': _encrypt_token(github_token),
+            'token_last_updated_at': now,
+            'created_at': now,
+            'updated_at': now,
+        }
+
+        result = users_collection.insert_one(user_doc)
+        created = users_collection.find_one({'_id': result.inserted_id})
+        session_token = _create_session_token(created)
+
+        return jsonify({
+            'success': True,
+            'message': 'Account created successfully',
+            'token': session_token,
+            'user': _build_user_response(created)
+        }), 201
+
+    except DuplicateKeyError:
+        return jsonify({'success': False, 'error': 'Username or Gmail already exists'}), 409
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/auth/login', methods=['POST'])
+def login():
+    """Authenticate user and issue JWT session token."""
+    if users_collection is None:
+        return jsonify({'success': False, 'error': 'Database is not configured'}), 503
+
+    try:
+        data = request.json or {}
+        identifier = data.get('username', '').strip() or data.get('gmail', '').strip() or data.get('email', '').strip()
+        password = data.get('password', '')
+
+        if not identifier or not password:
+            return jsonify({'success': False, 'error': 'Credentials are required'}), 400
+
+        user = users_collection.find_one({
+            '$or': [
+                {'username_lower': identifier.lower()},
+                {'email_lower': identifier.lower()},
+            ]
+        })
+
+        if not user or not _verify_password(password, user.get('password_hash', '')):
+            return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+        token = _create_session_token(user)
+        return jsonify({
+            'success': True,
+            'message': 'Login successful',
+            'token': token,
+            'user': _build_user_response(user)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/auth/me', methods=['GET'])
+@require_auth
+def get_me(current_user):
+    """Get authenticated user's profile (safe fields only)."""
+    return jsonify({
+        'success': True,
+        'user': _build_user_response(current_user)
+    })
+
+
+@app.route('/auth/github-token', methods=['PUT'])
+@require_auth
+def update_github_token(current_user):
+    """Allow users to rotate/change their encrypted GitHub token any time."""
+    ok, error_response, status = _require_auth_dependencies()
+    if not ok:
+        return error_response, status
+
+    try:
+        data = request.json or {}
+        github_token = data.get('github_token', '').strip()
+        if not github_token:
+            return jsonify({'success': False, 'error': 'GitHub access token is required'}), 400
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        users_collection.update_one(
+            {'_id': current_user['_id']},
+            {
+                '$set': {
+                    'github_token_encrypted': _encrypt_token(github_token),
+                    'token_last_updated_at': now,
+                    'updated_at': now,
+                }
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'GitHub token updated successfully',
+            'token_last_updated_at': now
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Configure Gemini API
 api_key = os.getenv('GEMINI_API_KEY')
@@ -749,9 +1066,46 @@ def generate_and_push_to_github():
         for filename in sorted(files.keys()):
             print(f"    - {filename}")
         
+        # Resolve GitHub token source: request payload > authenticated user's saved token > env fallback.
+        payload_token = data.get('github_token', '').strip()
+        save_token = bool(data.get('save_token', False))
+        token_source = 'env-default'
+        resolved_token = None
+
+        current_user, auth_error = _get_current_user(optional=True)
+        if auth_error:
+            message, status = auth_error
+            return jsonify({'success': False, 'error': message}), status
+
+        if payload_token:
+            resolved_token = payload_token
+            token_source = 'request'
+        elif current_user and current_user.get('github_token_encrypted'):
+            if fernet is None:
+                return jsonify({'success': False, 'error': 'Token encryption is not configured'}), 503
+            try:
+                resolved_token = _decrypt_token(current_user['github_token_encrypted'])
+                token_source = 'saved-user-token'
+            except InvalidToken:
+                return jsonify({'success': False, 'error': 'Stored GitHub token is unreadable. Please update your token.'}), 500
+
+        # Optionally persist a newly provided token for authenticated users.
+        if payload_token and current_user and save_token:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            users_collection.update_one(
+                {'_id': current_user['_id']},
+                {
+                    '$set': {
+                        'github_token_encrypted': _encrypt_token(payload_token),
+                        'token_last_updated_at': now,
+                        'updated_at': now,
+                    }
+                }
+            )
+
         # STEP 2: Push to GitHub
         print("\nStep 2/3: Pushing to GitHub...")
-        github_mgr = GitHubManager()
+        github_mgr = GitHubManager(token=resolved_token)
         github_result = github_mgr.create_and_push(
             user_description,
             files,
@@ -784,6 +1138,11 @@ def generate_and_push_to_github():
             'files': files,
             'file_count': len(files),
             'github': github_result,
+            'auth': {
+                'authenticated': bool(current_user),
+                'github_token_source': token_source,
+                'token_saved': bool(payload_token and current_user and save_token)
+            },
             'customization': {
                 'branding': branding,
                 'social_media': {k: v for k, v in social_media.items() if v},
