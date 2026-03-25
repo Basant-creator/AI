@@ -6,6 +6,7 @@
 const DROPDOWN_IDS = ['loginDropdown', 'signupDropdown', 'tokenDropdown'];
 const API_BASE = '';
 const AUTH_STORAGE_KEY = 'bobai_session_token';
+let loginRequestInFlight = false;
 
 function getSessionToken() {
     return localStorage.getItem(AUTH_STORAGE_KEY) || '';
@@ -178,6 +179,14 @@ function showToast(message, duration = 3000) {
 async function handleLogin(e) {
     e.preventDefault();
 
+    if (loginRequestInFlight) {
+        return;
+    }
+
+    const form = e.currentTarget || e.target;
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn?.textContent || 'Login';
+
     const identifier = document.getElementById('loginIdentifier')?.value.trim() || '';
     const password = document.getElementById('loginPassword')?.value || '';
 
@@ -186,12 +195,23 @@ async function handleLogin(e) {
         return;
     }
 
+    loginRequestInFlight = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Logging in...';
+    }
+
     try {
         const res = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: identifier, gmail: identifier, password }),
         });
+
+        if (res.status === 429) {
+            showToast('⚠ Too many login attempts. Please wait and try again.');
+            return;
+        }
 
         const payload = await res.json();
         if (!res.ok || !payload.success) {
@@ -206,6 +226,12 @@ async function handleLogin(e) {
         e.target.reset();
     } catch (_err) {
         showToast('⚠ Login failed. Please try again.');
+    } finally {
+        loginRequestInFlight = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
+        }
     }
 }
 
