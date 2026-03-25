@@ -226,6 +226,66 @@ function formatSuccessResponse(payload) {
     return lines.join('\n');
 }
 
+let progressInterval = null;
+
+function showProgress() {
+    const container = document.getElementById('progressContainer');
+    const textEl = document.getElementById('progressText');
+    const barEl = document.getElementById('progressBar');
+    const pctEl = document.getElementById('progressPercent');
+    
+    if (container) container.classList.remove('hidden');
+    
+    const steps = [
+        { pct: 10, text: 'Prompt getting accepted by API...' },
+        { pct: 30, text: 'Analyzing requirements and structure...' },
+        { pct: 50, text: 'Writing code for your website...' },
+        { pct: 70, text: 'Creating GitHub repository...' },
+        { pct: 90, text: 'Pushing files to GitHub...' }
+    ];
+    
+    let currentStep = 0;
+    
+    const updateProgress = (stepIndex) => {
+        if (stepIndex >= steps.length) return;
+        const step = steps[stepIndex];
+        if (textEl) textEl.textContent = step.text;
+        if (barEl) barEl.style.width = step.pct + '%';
+        if (pctEl) pctEl.textContent = step.pct + '%';
+    };
+    
+    updateProgress(0);
+    
+    let elapsed = 0;
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(() => {
+        elapsed += 1;
+        if (elapsed === 3) currentStep = 1;
+        else if (elapsed === 10) currentStep = 2;
+        else if (elapsed === 25) currentStep = 3;
+        else if (elapsed === 40) currentStep = 4;
+        
+        updateProgress(currentStep);
+    }, 1000);
+}
+
+function hideProgress() {
+    if (progressInterval) clearInterval(progressInterval);
+    const container = document.getElementById('progressContainer');
+    if (container) container.classList.add('hidden');
+}
+
+function completeProgress() {
+    if (progressInterval) clearInterval(progressInterval);
+    const textEl = document.getElementById('progressText');
+    const barEl = document.getElementById('progressBar');
+    const pctEl = document.getElementById('progressPercent');
+    
+    if (textEl) textEl.textContent = 'Done!';
+    if (barEl) barEl.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+}
+
 async function onSubmitForm(event) {
     event.preventDefault();
 
@@ -246,6 +306,8 @@ async function onSubmitForm(event) {
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Running...';
+    
+    showProgress();
 
     try {
         const res = await fetch(`${API_BASE}/generate-and-deploy`, {
@@ -256,15 +318,20 @@ async function onSubmitForm(event) {
 
         const data = await res.json();
         if (!res.ok || !data.success) {
+            hideProgress();
             setMetric('resultMetric', 'Failed');
             setResult(`Status: Failed\nReason: ${data.error || 'Unknown error from API.'}`, 'status-error');
             return;
         }
 
+        completeProgress();
+        setTimeout(() => hideProgress(), 2500);
+
         setMetric('resultMetric', 'Success');
         setResult(formatSuccessResponse(data), 'status-success');
         hydrateProfile();
     } catch (_err) {
+        hideProgress();
         setMetric('resultMetric', 'Failed');
         setResult('Status: Failed\nReason: Unable to reach backend service.', 'status-error');
     } finally {

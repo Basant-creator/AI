@@ -138,6 +138,18 @@
             <aside class="result-panel" id="resultPanel">
                 <h3>Run Output</h3>
                 <p class="result-hint">Your generation result appears here.</p>
+                
+                <div id="progressContainer" class="progress-container hidden">
+                    <div class="progress-stats">
+                        <span id="progressText">Prompt getting accepted by API...</span>
+                        <span id="progressPercent">10%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="progressBar" class="progress-fill"></div>
+                    </div>
+                    <div class="coding-gradient-line"></div>
+                </div>
+
                 <div id="resultContent" class="result-content">No runs yet.</div>
 
                 <div class="profile-section" id="profileSection">
