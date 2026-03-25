@@ -33,6 +33,16 @@ app.get('/homepage/dashboard', async (req, res) => {
   res.sendFile(path.join(__dirname, '../DashBoard/dashboard.html'));
 });
 app.get('/health', async (_req, res) => {
+  // Liveness endpoint for Render: only reports gateway process status.
+  // Do not depend on upstream Flask availability here.
+  res.status(200).json({
+    gateway: 'ok',
+    service: 'ai-express-gateway',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/health/upstream', async (_req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK}/health`, { timeout: 5000 });
     res.status(flaskRes.status).json({
@@ -219,5 +229,5 @@ function forwardError(err, res, route) {
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
   console.log(`Flask AI engine  →  ${FLASK}`);
-  console.log('Routes: GET /health | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
+  console.log('Routes: GET /health | GET /health/upstream | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
 });
