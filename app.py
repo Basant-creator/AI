@@ -22,9 +22,18 @@ load_dotenv()
 
 app = Flask(__name__)
 
+def _safe_int_env(var_name, default):
+    raw = os.getenv(var_name, str(default)).strip()
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        print(f"⚠ Invalid {var_name}='{raw}'. Falling back to {default}.")
+        return default
+
+
 JWT_SECRET = os.getenv('JWT_SECRET', 'change-this-in-production')
 JWT_ALGORITHM = 'HS256'
-JWT_EXP_DAYS = int(os.getenv('JWT_EXP_DAYS', '7'))
+JWT_EXP_DAYS = _safe_int_env('JWT_EXP_DAYS', 7)
 
 
 def _build_fernet():
@@ -1252,7 +1261,7 @@ def generate_and_push_to_github():
         }), 500
 if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', '5000'))
+    port = _safe_int_env('PORT', 5000)
 
     print(f"Starting Flask server on http://{host}:{port}")
     print("Available endpoints:")
