@@ -130,6 +130,17 @@ def _decrypt_token(encrypted_token):
     return fernet.decrypt(encrypted_token.encode('utf-8')).decode('utf-8')
 
 
+def _normalize_github_token(token):
+    """Normalize pasted tokens (trim, remove optional Bearer prefix/newlines)."""
+    if not token:
+        return ''
+
+    normalized = str(token).strip().replace('\r', '').replace('\n', '')
+    if normalized.lower().startswith('bearer '):
+        normalized = normalized[7:].strip()
+    return normalized
+
+
 def _create_session_token(user_doc):
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
@@ -1137,7 +1148,7 @@ def generate_and_push_to_github():
             print(f"    - {filename}")
         
         # Resolve GitHub token source: request payload > authenticated user's saved token.
-        payload_token = data.get('github_token', '').strip()
+        payload_token = _normalize_github_token(data.get('github_token', ''))
         save_token = bool(data.get('save_token', False))
         token_source = None
         resolved_token = None
@@ -1154,7 +1165,7 @@ def generate_and_push_to_github():
             if fernet is None:
                 return jsonify({'success': False, 'error': 'Token encryption is not configured'}), 503
             try:
-                resolved_token = _decrypt_token(current_user['github_token_encrypted'])
+                resolved_token = _normalize_github_token(_decrypt_token(current_user['github_token_encrypted']))
                 token_source = 'saved-user-token'
             except InvalidToken:
                 return jsonify({'success': False, 'error': 'Stored GitHub token is unreadable. Please update your token.'}), 500
@@ -1190,6 +1201,13 @@ def generate_and_push_to_github():
         )
         
         if not github_result['success']:
+            github_error = github_result.get('error', '')
+            if 'Bad credentials' in github_error or '401' in github_error:
+                token_hint = 'provided request token' if token_source == 'request' else 'saved account token'
+                return jsonify({
+                    'success': False,
+                    'error': f'GitHub rejected the {token_hint}. Use a valid personal access token with repository permissions and try again.'
+                }), 401
             return jsonify({
                 'success': False,
                 'error': f"GitHub error: {github_result['error']}"

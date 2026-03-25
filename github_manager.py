@@ -18,7 +18,13 @@ class GitHubManager:
         Initialize GitHub manager
         token: Optional user's GitHub token. If None, uses default from .env
         """
-        self.token = token or os.getenv('GITHUB_TOKEN')
+        raw_token = token or os.getenv('GITHUB_TOKEN')
+        if raw_token:
+            raw_token = str(raw_token).strip().replace('\r', '').replace('\n', '')
+            if raw_token.lower().startswith('bearer '):
+                raw_token = raw_token[7:].strip()
+
+        self.token = raw_token
         if not self.token:
             raise ValueError("No GitHub token provided")
         
