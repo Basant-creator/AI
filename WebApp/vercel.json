@@ -15,6 +15,10 @@
     {
       "source": "/health",
       "destination": "https://bob-ai-1.onrender.com/health"
+    },
+    {
+      "source": "/contact",
+      "destination": "https://bob-ai-1.onrender.com/contact"
     }
   ]
 }

@@ -154,6 +154,19 @@ app.post('/auth/signin', async (req, res) => {
   }
 });
 
+app.post('/contact', async (req, res) => {
+  try {
+    const flaskRes = await axios.post(
+      `${FLASK}/contact`,
+      req.body,
+      { timeout: 15_000 },
+    );
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'contact');
+  }
+});
+
 app.get('/auth/me', async (req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK}/auth/me`, {

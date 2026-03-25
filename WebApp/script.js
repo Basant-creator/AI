@@ -320,10 +320,42 @@ async function handleTokenUpdate(e) {
     }
 }
 
-function handleContact(e) {
+async function handleContact(e) {
     e.preventDefault();
-    e.target.reset();
-    showToast('✉ Message sent! We\'ll be in touch soon.');
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn ? submitBtn.textContent : 'Send Message';
+    
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+    }
+    
+    try {
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        const res = await fetch(`${API_BASE}/contact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const payload = await res.json();
+        if (res.ok && payload.success) {
+            showToast('✉ Message sent! We\'ll be in touch soon.');
+            form.reset();
+        } else {
+            showToast(`⚠ ${payload.error || 'Failed to send message'}`);
+        }
+    } catch (_err) {
+        showToast('⚠ Error sending message. Please try again.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    }
 }
 
 // ── Smooth scroll for anchor links ───────────────────────────

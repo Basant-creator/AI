@@ -71,6 +71,7 @@ mongo_password = os.getenv('MONGODB_PASSWORD')
 mongo_auth_db = os.getenv('MONGODB_AUTH_DB', 'admin').strip()
 mongo_client = None
 users_collection = None
+contacts_collection = None
 
 if mongo_uri:
     try:
@@ -93,6 +94,7 @@ if mongo_uri:
         mongo_client.admin.command('ping')
         db = mongo_client[mongo_db_name]
         users_collection = db['users']
+        contacts_collection = db['contacts']
         users_collection.create_index('username_lower', unique=True)
         users_collection.create_index('email_lower', unique=True)
         print(f"✓ MongoDB connected ({mongo_db_name})")
@@ -366,6 +368,28 @@ def update_github_token(current_user):
             'message': 'GitHub token updated successfully',
             'token_last_updated_at': now
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/contact', methods=['POST'])
+def contact():
+    if contacts_collection is None:
+        return jsonify({'success': False, 'error': 'Database is not configured'}), 503
+    try:
+        data = request.json or {}
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        message = data.get('message', '').strip()
+        if not name or not email or not message:
+            return jsonify({'success': False, 'error': 'All fields are required'}), 400
+        contacts_collection.insert_one({
+            'name': name,
+            'email': email,
+            'message': message,
+            'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+        })
+        return jsonify({'success': True, 'message': 'Message sent successfully!'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

@@ -1,5 +1,10 @@
 const API_BASE = '';
 const AUTH_STORAGE_KEY = 'bobai_session_token';
+
+if (!localStorage.getItem(AUTH_STORAGE_KEY)) {
+    window.location.replace('/index.html');
+}
+
 const profileState = {
     authenticated: false,
     hasSavedGithubToken: false,
@@ -103,11 +108,7 @@ function setTokenFieldHint() {
 async function hydrateProfile() {
     const token = getSessionToken();
     if (!token) {
-        profileState.authenticated = false;
-        profileState.hasSavedGithubToken = false;
-        setProfileSummary(null, 0);
-        renderHistory([]);
-        setTokenFieldHint();
+        window.location.replace('/index.html');
         return;
     }
 
