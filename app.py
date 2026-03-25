@@ -200,9 +200,8 @@ def _build_user_response(user_doc):
 @app.route('/auth/signup', methods=['POST'])
 def signup():
     """Create a user account with encrypted GitHub token."""
-    ok, error_response, status = _require_auth_dependencies()
-    if not ok:
-        return error_response, status
+    if users_collection is None:
+        return jsonify({'success': False, 'error': 'Database is not configured'}), 503
 
     try:
         data = request.json or {}
@@ -219,8 +218,8 @@ def signup():
             return jsonify({'success': False, 'error': 'Please provide a valid Gmail'}), 400
         if len(password) < 8:
             return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
-        if not github_token:
-            return jsonify({'success': False, 'error': 'GitHub access token is required'}), 400
+        if github_token and fernet is None:
+            return jsonify({'success': False, 'error': 'Token encryption is not configured'}), 503
 
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         user_doc = {
@@ -229,12 +228,14 @@ def signup():
             'email': email,
             'email_lower': email.lower(),
             'password_hash': _hash_password(password),
-            'github_token_encrypted': _encrypt_token(github_token),
             'generation_history': [],
-            'token_last_updated_at': now,
             'created_at': now,
             'updated_at': now,
         }
+
+        if github_token:
+            user_doc['github_token_encrypted'] = _encrypt_token(github_token)
+            user_doc['token_last_updated_at'] = now
 
         result = users_collection.insert_one(user_doc)
         created = users_collection.find_one({'_id': result.inserted_id})

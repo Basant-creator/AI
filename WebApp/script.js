@@ -235,7 +235,14 @@ async function handleSignup(e) {
             }),
         });
 
-        const payload = await res.json();
+        const raw = await res.text();
+        let payload = {};
+        try {
+            payload = raw ? JSON.parse(raw) : {};
+        } catch (_parseErr) {
+            payload = { error: raw || 'Unexpected response from server' };
+        }
+
         if (!res.ok || !payload.success) {
             showToast(`⚠ ${payload.error || 'Signup failed'}`);
             return;
@@ -246,8 +253,8 @@ async function handleSignup(e) {
         closeAllDropdowns();
         showToast('🎉 Account created and logged in.');
         e.target.reset();
-    } catch (_err) {
-        showToast('⚠ Signup failed. Please try again.');
+    } catch (err) {
+        showToast(`⚠ Signup failed: ${err.message || 'Please try again.'}`);
     }
 }
 
