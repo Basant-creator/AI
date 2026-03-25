@@ -867,13 +867,13 @@ def get_react_prompt_enhanced(description, branding, social_media, contact):
     social_links = []
     if social_media['instagram']:
         social_links.append(f"Instagram: {social_media['instagram']}")
-    if social_media['twitter']:
+    if social_media.get('twitter'):
         social_links.append(f"Twitter: {social_media['twitter']}")
-    if social_media['facebook']:
+    if social_media.get('facebook'):
         social_links.append(f"Facebook: {social_media['facebook']}")
-    if social_media['linkedin']:
+    if social_media.get('linkedin'):
         social_links.append(f"LinkedIn: {social_media['linkedin']}")
-    if social_media['youtube']:
+    if social_media.get('youtube'):
         social_links.append(f"YouTube: {social_media['youtube']}")
     
     social_info = ""
@@ -883,11 +883,11 @@ def get_react_prompt_enhanced(description, branding, social_media, contact):
     # Build contact section
     contact_info = ""
     contact_items = []
-    if contact['email']:
-        contact_items.append(f"Email: {contact['email']}")
-    if contact['phone']:
-        contact_items.append(f"Phone: {contact['phone']}")
-    if contact['address']:
+    if social_media.get('email'):
+        contact_items.append(f"Email: {social_media['email']}")
+    if social_media.get('phone'):
+        contact_items.append(f"Phone: {social_media['phone']}")
+    if contact.get('address'):
         contact_items.append(f"Address: {contact['address']}")
     
     if contact_items:
@@ -1097,6 +1097,7 @@ def generate_and_push_to_github():
             'twitter': data.get('twitter', ''),
             'linkedin': data.get('linkedin', ''),
             'facebook': data.get('facebook', ''),
+            'youtube': data.get('youtube', ''),
             'email': data.get('email', ''),
             'phone': data.get('phone', ''),
         }
