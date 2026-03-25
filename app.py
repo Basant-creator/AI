@@ -275,6 +275,7 @@ def signup():
 
 
 @app.route('/auth/login', methods=['POST'])
+@app.route('/auth/signin', methods=['POST'])
 def login():
     """Authenticate user and issue JWT session token."""
     if users_collection is None:

@@ -141,6 +141,19 @@ app.post('/auth/login', async (req, res) => {
   }
 });
 
+app.post('/auth/signin', async (req, res) => {
+  try {
+    const flaskRes = await axios.post(
+      `${FLASK}/auth/signin`,
+      req.body,
+      { timeout: 15_000 },
+    );
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'auth-signin');
+  }
+});
+
 app.get('/auth/me', async (req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK}/auth/me`, {
@@ -229,5 +242,5 @@ function forwardError(err, res, route) {
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
   console.log(`Flask AI engine  →  ${FLASK}`);
-  console.log('Routes: GET /health | GET /health/upstream | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
+  console.log('Routes: GET /health | GET /health/upstream | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | POST /auth/signin | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
 });
