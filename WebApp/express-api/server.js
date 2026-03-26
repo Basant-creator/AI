@@ -251,6 +251,18 @@ function forwardError(err, res, route) {
   res.status(500).json({ error: 'Internal gateway error', detail: err.message });
 }
 
+// ─── Keep-Alive Ping ──────────────────────────────────────────────────────────
+// Pings the server every 10 minutes to prevent Render free tier from sleeping
+const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || 'https://bob-ai-1.onrender.com/health/upstream';
+const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+setInterval(() => {
+  console.log(`[Keep-Alive] Pinging ${KEEP_ALIVE_URL}...`);
+  axios.get(KEEP_ALIVE_URL)
+    .then((res) => console.log(`[Keep-Alive] Ping successful (Express: ${res.data.gateway}, Flask: ${res.data.flask?.status || 'ok'})`))
+    .catch(err => console.error(`[Keep-Alive] Ping failed:`, err.message));
+}, KEEP_ALIVE_INTERVAL);
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
