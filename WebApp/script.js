@@ -34,9 +34,18 @@ function updateAuthUi(isLoggedIn) {
     const signupBtn = document.querySelector('#signupDropdown .nav-btn');
     const accountBtn = document.getElementById('accountBtn');
 
+    // Mobile buttons
+    const mLoginBtn = document.getElementById('mobileLoginBtn');
+    const mSignupBtn = document.getElementById('mobileSignupBtn');
+    const mLogoutBtn = document.getElementById('mobileLogoutBtn');
+
     if (loginBtn) loginBtn.style.display = isLoggedIn ? 'none' : '';
     if (signupBtn) signupBtn.style.display = isLoggedIn ? 'none' : '';
     if (accountBtn) accountBtn.style.display = isLoggedIn ? '' : 'none';
+    
+    if (mLoginBtn) mLoginBtn.style.display = isLoggedIn ? 'none' : '';
+    if (mSignupBtn) mSignupBtn.style.display = isLoggedIn ? 'none' : '';
+    if (mLogoutBtn) mLogoutBtn.style.display = isLoggedIn ? '' : 'none';
 }
 
 async function hydrateSession() {
@@ -318,6 +327,13 @@ async function handleTokenUpdate(e) {
     } catch (_err) {
         showToast('⚠ Token update failed. Please try again.');
     }
+}
+
+function handleLogout() {
+    setSessionToken('');
+    updateAuthUi(false);
+    closeAllDropdowns();
+    showToast('✓ Logged out successfully.');
 }
 
 async function handleContact(e) {

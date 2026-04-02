@@ -3,15 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BobAI</title>
+    <title>BobAI - Documentation</title>
     <link rel="icon" href="data:,">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
     <script src="/script.js" defer></script>
+    <style>
+        .docs-section {
+            padding: 120px 5% 80px;
+            max-width: 900px;
+            margin: 0 auto;
+            color: #e2e8f0;
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.7;
+        }
+        .docs-section h1, .docs-section h2, .docs-section h3 {
+            font-family: 'Montserrat', sans-serif;
+            color: #ffffff;
+        }
+        .docs-section h1 { font-size: 2.5rem; margin-bottom: 25px; text-align: center; }
+        .docs-section h2 { font-size: 1.8rem; margin-top: 40px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .docs-section h3 { font-size: 1.4rem; color: #8a2be2; margin-top: 30px; margin-bottom: 15px; }
+        .docs-section p { margin-bottom: 20px; font-size: 1.1rem; }
+        .docs-section ul, .docs-section ol { margin-bottom: 25px; margin-left: 20px; font-size: 1.1rem; }
+        .docs-section li { margin-bottom: 12px; }
+        .docs-section code {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #00ffff;
+            font-size: 0.9em;
+        }
+        .docs-card {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .callout {
+            background: rgba(138, 43, 226, 0.1);
+            border-left: 4px solid #8a2be2;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
 
-    
     <!-- ===== NAVBAR ===== -->
     <nav class="navbar" id="navbar">
         <div class="navbar-brand">
@@ -19,10 +61,10 @@
         </div>
 
         <ul class="nav-links">
-            <li><a href="#" class="nav-link active">Home</a></li>
-            <li><a href="#features" class="nav-link">Features</a></li>
-            <li><a href="#contact" class="nav-link">Contact</a></li>
-            <li><a href="/documentation.html" class="nav-link">Documentation</a></li>
+            <li><a href="/index.html" class="nav-link">Home</a></li>
+            <li><a href="/index.html#features" class="nav-link">Features</a></li>
+            <li><a href="/index.html#contact" class="nav-link">Contact</a></li>
+            <li><a href="/documentation.html" class="nav-link active">Documentation</a></li>
         </ul>
 
         <div class="nav-actions">
@@ -135,9 +177,9 @@
 
     <!-- Mobile nav overlay -->
     <div class="mobile-menu" id="mobileMenu">
-        <a href="#" class="mobile-link">Home</a>
-        <a href="#features" class="mobile-link">Features</a>
-        <a href="#contact" class="mobile-link">Contact</a>
+        <a href="/index.html" class="mobile-link">Home</a>
+        <a href="/index.html#features" class="mobile-link">Features</a>
+        <a href="/index.html#contact" class="mobile-link">Contact</a>
         <a href="/documentation.html" class="mobile-link">Documentation</a>
         <hr class="mobile-divider">
         <a href="#" class="mobile-link" id="mobileLoginBtn" onclick="toggleDropdown('loginDropdown'); toggleMobileMenu();">Login</a>
@@ -148,96 +190,58 @@
     <!-- Dropdown backdrop -->
     <div class="backdrop" id="backdrop" onclick="closeAllDropdowns()"></div>
 
+    <!-- ===== DOCUMENTATION SECTION ===== -->
+    <section class="docs-section">
+        <h1>BobAI Documentation</h1>
+        <p style="text-align: center; color: #a0aec0;">Welcome to BobAI! Follow this guide to get up and running quickly, and configure your integrations correctly.</p>
 
-    <!-- ===== HERO SECTION ===== -->
-    <section class="hero" id="home">
-        <div class="hero-image-half">
-            <img src="/images/Main.jpg" alt="BobAI in action" class="hero-img">
-            <div class="hero-img-overlay"></div>
+        <div class="docs-card">
+            <h2>Getting Started</h2>
+            <p>BobAI is an intelligent tooling platform that accelerates your workflow. To begin using our platform:</p>
+            <ol>
+                <li><strong>Create an account</strong> using the Sign Up button in the top right.</li>
+                <li><strong>Navigate to your Dashboard</strong> to access your projects.</li>
+                <li><strong>Provide a GitHub Access Token</strong> to enable code generation, repository integration, and automated deployments.</li>
+            </ol>
         </div>
-        <div class="hero-text-half">
-            <div class="hero-content" id="heroContent">
-                <h1 class="hero-heading">
-                    Bob AI<br>
-                    <span class="hero-gradient-text">helping you build</span>
-                </h1>
-                <p class="hero-sub">Intelligent tooling that accelerates your workflow — from concept to production, powered by AI.</p>
-                <div class="hero-cta-group">
-                    <button class="cta-btn-primary" onclick="toggleDropdown('signupDropdown')">Get Started Free</button>
-                </div>
+
+        <div class="docs-card">
+            <h2>Generating a GitHub Access Token</h2>
+            <p>To let BobAI interact with your repositories and workflows, you must provide a <strong>Classic GitHub Access Token</strong>. Follow these precise steps:</p>
+            
+            <div class="callout">
+                <strong>Why do we need this?</strong> We use this token purely to push generated code to your repositories and trigger automated workflows at your request.
             </div>
+
+            <h3>Step 1: Navigate to Developer Settings</h3>
+            <ol>
+                <li>Log in to your <a href="https://github.com" target="_blank" style="color: #00ffff; text-decoration: none;">GitHub account</a>.</li>
+                <li>Click your profile photo in the upper-right corner and select <strong>Settings</strong>.</li>
+                <li>Scroll all the way down the left sidebar and click <strong>Developer settings</strong> (or go directly to <a href="https://github.com/settings/tokens" target="_blank" style="color: #00ffff; text-decoration: none;">github.com/settings/tokens</a>).</li>
+            </ol>
+
+            <h3>Step 2: Generate New Classic Token</h3>
+            <ol>
+                <li>In the left sidebar, click <strong>Personal access tokens</strong>, then select <strong>Tokens (classic)</strong>.</li>
+                <li>Click the <strong>Generate new token</strong> dropdown button and select <strong>Generate new token (classic)</strong>.</li>
+                <li>Give your token a descriptive <strong>Note</strong> (e.g., <code>BobAI Integration</code>).</li>
+                <li>Set an <strong>Expiration</strong> date for the token (we recommend 30-90 days for better security).</li>
+            </ol>
+
+            <h3>Step 3: Assign Critical Permissions</h3>
+            <p>You must check the following boxes for BobAI to function correctly:</p>
+            <ul>
+                <li>☑️ <strong><code>repo</code></strong> — This grants full control of private repositories. It is required for us to read/write code.</li>
+                <li>☑️ <strong><code>workflow</code></strong> — This allows us to update and execute GitHub Actions workflows.</li>
+            </ul>
+
+            <h3>Step 4: Copy and Save</h3>
+            <p>Scroll to the bottom and click <strong>Generate token</strong>. <br><br>
+            <strong style="color:#ff6b6b">Important:</strong> Copy the token immediately! It starts with <code>ghp_</code>. Once you navigate away from the page, you will not be able to see it again.</p>
+            
+            <p>Go back to BobAI, click on your <strong>Account</strong> in the top right, and paste your token into the <strong>Update GitHub Token</strong> field.</p>
         </div>
     </section>
-
-
-    <!-- ===== FEATURES SECTION ===== -->
-    <section class="features-section" id="features">
-        <div class="section-container">
-            <div class="section-badge">Features</div>
-            <h2 class="section-title">Everything you need to <span class="gradient-text">build faster</span></h2>
-            <p class="section-sub">BobAI combines cutting-edge AI with developer-first tooling.</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Lightning Fast</h3>
-                    <p>Generate production-ready code in seconds with our optimised AI engine.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🧠</div>
-                    <h3>Intelligent Context</h3>
-                    <p>BobAI understands your entire codebase, not just the file you're editing.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Secure by Default</h3>
-                    <p>Built-in security scanning ensures your generated code is safe and compliant.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔗</div>
-                    <h3>Seamless Integration</h3>
-                    <p>Works with every major IDE, framework, and version control system.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📈</div>
-                    <h3>Analytics Dashboard</h3>
-                    <p>Track productivity gains, usage patterns, and team performance metrics.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Always Available</h3>
-                    <p>99.9% uptime guarantee with global edge infrastructure for low latency.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
-    <!-- ===== CONTACT SECTION ===== -->
-    <section class="contact-section" id="contact">
-        <div class="section-container">
-            <div class="section-badge">Contact</div>
-            <h2 class="section-title">Get in <span class="gradient-text">touch</span></h2>
-            <p class="section-sub">Have a question or want to work together? We'd love to hear from you.</p>
-            <form class="contact-form" onsubmit="handleContact(event)">
-                <div class="contact-row">
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input name="name" type="text" placeholder="Your name" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input name="email" type="email" placeholder="your@email.com" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Message</label>
-                    <textarea name="message" rows="5" placeholder="Tell us about your project..." required></textarea>
-                </div>
-                <button type="submit" class="form-submit-btn">Send Message</button>
-            </form>
-        </div>
-    </section>
-
 
     <!-- ===== FOOTER ===== -->
     <footer class="footer">
