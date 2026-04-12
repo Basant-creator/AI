@@ -1043,13 +1043,10 @@ def generate_website():
             'error': str(e)
         }), 500
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Simple health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'message': 'AI Website Generator API is running'
-    })
+@limiter.exempt
+@app.route('/health')
+def health():
+    return "OK", 200
 
 
 @app.route('/', methods=['GET'])
