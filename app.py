@@ -1043,7 +1043,6 @@ def generate_website():
             'error': str(e)
         }), 500
 
-@limiter.exempt
 @app.route('/health')
 def health():
     return "OK", 200
