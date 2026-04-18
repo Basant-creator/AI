@@ -60,6 +60,10 @@ async function hydrateSession() {
             method: 'GET',
             headers: authHeaders(),
         });
+        if (res.status === 429) {
+            showToast('⚠ Too many requests. Please wait and try again.');
+            return;
+        }
         if (!res.ok) {
             setSessionToken('');
             updateAuthUi(false);
@@ -270,6 +274,11 @@ async function handleSignup(e) {
             }),
         });
 
+        if (res.status === 429) {
+            showToast('⚠ Too many signup attempts. Please wait and try again.');
+            return;
+        }
+
         const raw = await res.text();
         let payload = {};
         try {
@@ -315,6 +324,11 @@ async function handleTokenUpdate(e) {
             body: JSON.stringify({ github_token: githubToken }),
         });
 
+        if (res.status === 429) {
+            showToast('⚠ Too many requests. Please wait and try again.');
+            return;
+        }
+
         const payload = await res.json();
         if (!res.ok || !payload.success) {
             showToast(`⚠ ${payload.error || 'Token update failed'}`);
@@ -356,7 +370,12 @@ async function handleContact(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
+
+        if (res.status === 429) {
+            showToast('⚠ Too many contact requests. Please wait and try again.');
+            return;
+        }
+
         const payload = await res.json();
         if (res.ok && payload.success) {
             showToast('✉ Message sent! We\'ll be in touch soon.');
