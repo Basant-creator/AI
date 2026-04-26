@@ -1208,9 +1208,14 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
     except Exception as e:
         import traceback
         traceback.print_exc()
-        str_e = str(e)
+        
+        str_e = str(e).strip()
+        if not str_e:
+            str_e = repr(e)
+            
         if "Bad credentials" in str_e:
             str_e = "GitHub rejected the token. Invalid credentials."
+            
         JOBS_DB[job_id].update({
             'status': 'error',
             'success': False,

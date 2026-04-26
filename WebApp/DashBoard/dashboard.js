@@ -358,12 +358,10 @@ async function onSubmitForm(event) {
                     throw new Error('Job was lost. The server may have restarted seamlessly during generation. Please try again.');
                 }
                 
-                if (pollData.status === 'completed' || pollData.success) {
-                    if (pollData.status === 'completed') {
-                        data = pollData;
-                        break;
-                    }
-                } else if (pollData.status === 'error' || !pollData.success) {
+                if (pollData.status === 'completed') {
+                    data = pollData;
+                    break;
+                } else if (pollData.status === 'error') {
                     throw new Error(pollData.error || 'Job failed during execution.');
                 }
                 
