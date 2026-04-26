@@ -143,6 +143,17 @@ app.post('/generate-and-deploy', async (req, res) => {
   }
 });
 
+app.get('/job/:jobId', async (req, res) => {
+  try {
+    const flaskRes = await axiosWithFallback('get', `/job/${req.params.jobId}`, {
+      timeout: 10_000
+    });
+    res.status(flaskRes.status).json(flaskRes.data);
+  } catch (err) {
+    forwardError(err, res, 'job-status');
+  }
+});
+
 /**
  * Auth routes proxy to Flask auth service.
  */

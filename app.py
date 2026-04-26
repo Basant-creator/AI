@@ -10,6 +10,8 @@ import datetime
 from functools import wraps
 import bcrypt
 import jwt
+import threading
+import uuid
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from bson.objectid import ObjectId
@@ -21,6 +23,7 @@ from github_manager import GitHubManager
 load_dotenv()
 
 app = Flask(__name__)
+JOBS_DB = {}
 
 def _safe_int_env(var_name, default):
     raw = os.getenv(var_name, str(default)).strip()
@@ -1057,37 +1060,25 @@ def root_status():
         'health_path': '/health'
     })
 
-@app.route('/generate-and-push-to-github', methods=['POST'])
-def generate_and_push_to_github():
-    """
-    INTELLIGENT WORKFLOW: Detect structure → Generate → Push to GitHub
-    Supports: landing pages, multi-page, full-stack apps
-    """
-    try:
-        ok, error_response, status = _require_gemini_client()
-        if not ok:
-            return error_response, status
+@app.route('/job/<job_id>', methods=['GET'])
+def get_job_status(job_id):
+    """Retrieve status and eventual results of a background generation job."""
+    job = JOBS_DB.get(job_id)
+    if not job:
+        return jsonify({'success': False, 'error': 'Job not found'}), 404
+    return jsonify(job)
 
-        data = request.json
-        
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'}), 400
-        
+def _worker_generation(job_id, data, current_user, resolved_token, token_source, save_token, payload_token):
+    """Background worker for website generation and deployment."""
+    try:
         user_description = data.get('description', '').strip()
         project_type = data.get('type', 'vanilla').lower()
-        
-        if not user_description:
-            return jsonify({'success': False, 'error': 'Description is required'}), 400
-        
-        # Branding
         branding = {
             'company_name': data.get('company_name', 'My Company'),
             'tagline': data.get('tagline', ''),
             'primary_color': data.get('primary_color', '#667eea'),
             'secondary_color': data.get('secondary_color', '#764ba2'),
         }
-        
-        # Social media
         social_media = {
             'instagram': data.get('instagram', ''),
             'twitter': data.get('twitter', ''),
@@ -1097,79 +1088,154 @@ def generate_and_push_to_github():
             'email': data.get('email', ''),
             'phone': data.get('phone', ''),
         }
-        
-        # Contact
         contact = {
             'address': data.get('address', ''),
             'city': data.get('city', ''),
             'state': data.get('state', ''),
         }
-        
+
         print(f"\n{'='*60}")
-        print(f"INTELLIGENT WEBSITE GENERATION")
+        print(f"INTELLIGENT WEBSITE GENERATION [JOB: {job_id}]")
         print(f"{'='*60}")
-        print(f"Description: {user_description}")
         
-        # STEP 0: Determine website structure intelligently
-        print("\nStep 0/3: Analyzing requirements...")
-        
-        # Check if user selected a specific template
+        # STEP 0: Determine structure
         requested_type = data.get('website_type', '').strip().lower()
         if requested_type:
-            # Use user-selected template
             structure_info = get_structure_by_type(requested_type)
-            if structure_info:
-                print(f"✓ Using user-selected template: {structure_info['type'].upper()}")
-            else:
-                # Fall back to auto-detection if template is invalid
-                print(f"⚠ Unknown template '{requested_type}', auto-detecting...")
+            if not structure_info:
                 structure_info = determine_website_structure(user_description)
-                print(f"✓ Detected: {structure_info['type'].upper()}")
         else:
-            # Auto-detect based on description
             structure_info = determine_website_structure(user_description)
-            print(f"✓ Detected: {structure_info['type'].upper()}")
+            
+        JOBS_DB[job_id]['progress'] = 'Generating code with AI...'
         
-        print(f"  Files to generate: {len(structure_info['files'])}")
-        print(f"  Needs backend: {structure_info.get('needs_backend', False)}")
-        print(f"  Needs database: {structure_info.get('needs_database', False)}")
-        
-        # STEP 1: Generate with intelligent structure
-        print("\nStep 1/3: Generating code with AI...")
-        
+        # STEP 1: Generate with AI
         if project_type == 'react':
-            # For React, use existing prompt (for now)
             prompt = get_react_prompt_enhanced(user_description, branding, social_media, contact)
         else:
-            # Use intelligent structured prompt
-            prompt = get_structured_prompt(
-                user_description,
-                structure_info,
-                branding,
-                social_media,
-                contact
-            )
-        
+            prompt = get_structured_prompt(user_description, structure_info, branding, social_media, contact)
+            
         response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        generated_text = response.text
-        
-        # Parse files
-        files = parse_files_from_response(generated_text)
+        files = parse_files_from_response(response.text)
         
         if not files:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to parse files from AI response'
-            }), 500
+            raise Exception("Failed to parse files from AI response")
+
+        # Optionally persist token
+        if payload_token and current_user and save_token:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            users_collection.update_one(
+                {'_id': ObjectId(current_user['_id']) if isinstance(current_user['_id'], str) else current_user['_id']},
+                {
+                    '$set': {
+                        'github_token_encrypted': _encrypt_token(payload_token),
+                        'token_last_updated_at': now,
+                        'updated_at': now,
+                    }
+                }
+            )
+
+        # STEP 2: Pushing to GitHub
+        JOBS_DB[job_id]['progress'] = 'Pushing to GitHub...'
+        github_mgr = GitHubManager(token=resolved_token)
+        github_result = github_mgr.create_and_push(
+            user_description,
+            files,
+            branding=branding,
+            structure_info=structure_info,
+        )
         
-        print(f"✓ Generated {len(files)} files")
+        if not github_result['success']:
+            github_error = github_result.get('error', '')
+            if 'Bad credentials' in github_error or '401' in github_error:
+                token_hint = 'provided request token' if token_source == 'request' else 'saved account token'
+                raise Exception(f'GitHub rejected the {token_hint}. Use a valid personal access token with repository permissions and try again.')
+            raise Exception(f"GitHub error: {github_result['error']}")
+
+        if current_user and users_collection is not None:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            history_entry = {
+                'created_at': now,
+                'description': user_description,
+                'project_type': project_type,
+                'repo_name': github_result.get('repo_name', ''),
+                'repo_url': github_result.get('repo_url', ''),
+                'file_count': len(files),
+                'structure_type': structure_info.get('type', ''),
+            }
+            users_collection.update_one(
+                {'_id': ObjectId(current_user['_id']) if isinstance(current_user['_id'], str) else current_user['_id']},
+                {
+                    '$set': {'updated_at': now},
+                    '$push': {
+                        'generation_history': {
+                            '$each': [history_entry],
+                            '$slice': -30,
+                        }
+                    }
+                }
+            )
+
+        # STEP 3: Complete
+        JOBS_DB[job_id].update({
+            'status': 'completed',
+            'success': True,
+            'project_type': project_type,
+            'structure': {
+                'type': structure_info['type'],
+                'description': structure_info['description'],
+                'files_count': len(files),
+                'has_backend': structure_info.get('needs_backend', False),
+                'has_database': structure_info.get('needs_database', False)
+            },
+            'files': files,
+            'file_count': len(files),
+            'github': github_result,
+            'auth': {
+                'authenticated': bool(current_user),
+                'github_token_source': token_source,
+                'token_saved': bool(payload_token and current_user and save_token)
+            },
+            'customization': {
+                'branding': branding,
+                'social_media': {k: v for k, v in social_media.items() if v},
+                'contact': {k: v for k, v in contact.items() if v}
+            },
+            'message': f'{structure_info["description"]} generated and pushed to GitHub!'
+        })
+        print(f"✓ Job {job_id} Complete!")
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        str_e = str(e)
+        if "Bad credentials" in str_e:
+            str_e = "GitHub rejected the token. Invalid credentials."
+        JOBS_DB[job_id].update({
+            'status': 'error',
+            'success': False,
+            'error': str_e
+        })
+
+@app.route('/generate-and-push-to-github', methods=['POST'])
+def generate_and_push_to_github():
+    """
+    INTELLIGENT WORKFLOW: Starts background generation job.
+    Returns: { "success": True, "job_id": "uuid" }
+    """
+    try:
+        ok, error_response, status_code = _require_gemini_client()
+        if not ok:
+            return error_response, status_code
+
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
         
-        # Show what was generated
-        print("\n  Generated files:")
-        for filename in sorted(files.keys()):
-            print(f"    - {filename}")
-        
-        # Resolve GitHub token source: request payload > authenticated user's saved token.
+        user_description = data.get('description', '').strip()
+        if not user_description:
+            return jsonify({'success': False, 'error': 'Description is required'}), 400
+
         payload_token = _normalize_github_token(data.get('github_token', ''))
         save_token = bool(data.get('save_token', False))
         token_source = None
@@ -1198,101 +1264,19 @@ def generate_and_push_to_github():
                 'error': 'GitHub access token is required. Provide github_token in the request or save one to your account.'
             }), 400
 
-        # Optionally persist a newly provided token for authenticated users.
-        if payload_token and current_user and save_token:
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            users_collection.update_one(
-                {'_id': current_user['_id']},
-                {
-                    '$set': {
-                        'github_token_encrypted': _encrypt_token(payload_token),
-                        'token_last_updated_at': now,
-                        'updated_at': now,
-                    }
-                }
-            )
+        job_id = str(uuid.uuid4())
+        JOBS_DB[job_id] = {'status': 'pending', 'progress': 'Initializing job...'}
 
-        # STEP 2: Push to GitHub
-        print("\nStep 2/3: Pushing to GitHub...")
-        github_mgr = GitHubManager(token=resolved_token)
-        github_result = github_mgr.create_and_push(
-            user_description,
-            files,
-            branding=branding,
-            structure_info=structure_info,
-        )
+        # We must create a copy of the current_user dict to avoid weird issues traversing thread context since it's an object with ObjectId.
+        user_copy = dict(current_user) if current_user else None
         
-        if not github_result['success']:
-            github_error = github_result.get('error', '')
-            if 'Bad credentials' in github_error or '401' in github_error:
-                token_hint = 'provided request token' if token_source == 'request' else 'saved account token'
-                return jsonify({
-                    'success': False,
-                    'error': f'GitHub rejected the {token_hint}. Use a valid personal access token with repository permissions and try again.'
-                }), 401
-            return jsonify({
-                'success': False,
-                'error': f"GitHub error: {github_result['error']}"
-            }), 500
+        thread = threading.Thread(target=_worker_generation, args=(job_id, data, user_copy, resolved_token, token_source, save_token, payload_token))
+        thread.daemon = True
+        thread.start()
 
-        if current_user and users_collection is not None:
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            history_entry = {
-                'created_at': now,
-                'description': user_description,
-                'project_type': project_type,
-                'repo_name': github_result.get('repo_name', ''),
-                'repo_url': github_result.get('repo_url', ''),
-                'file_count': len(files),
-                'structure_type': structure_info.get('type', ''),
-            }
-            users_collection.update_one(
-                {'_id': current_user['_id']},
-                {
-                    '$set': {'updated_at': now},
-                    '$push': {
-                        'generation_history': {
-                            '$each': [history_entry],
-                            '$slice': -30,
-                        }
-                    }
-                }
-            )
-        
-        print(f"✓ Pushed to: {github_result['repo_url']}")
-        
-        # STEP 3: Complete!
-        print("\nStep 3/3: Complete!")
-        print(f"{'='*60}\n")
-        
-        return jsonify({
-            'success': True,
-            'project_type': project_type,
-            'structure': {
-                'type': structure_info['type'],
-                'description': structure_info['description'],
-                'files_count': len(files),
-                'has_backend': structure_info.get('needs_backend', False),
-                'has_database': structure_info.get('needs_database', False)
-            },
-            'files': files,
-            'file_count': len(files),
-            'github': github_result,
-            'auth': {
-                'authenticated': bool(current_user),
-                'github_token_source': token_source,
-                'token_saved': bool(payload_token and current_user and save_token)
-            },
-            'customization': {
-                'branding': branding,
-                'social_media': {k: v for k, v in social_media.items() if v},
-                'contact': {k: v for k, v in contact.items() if v}
-            },
-            'message': f'{structure_info["description"]} generated and pushed to GitHub!'
-        })
+        return jsonify({'success': True, 'job_id': job_id, 'status': 'pending'}), 202
     
     except Exception as e:
-        print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({

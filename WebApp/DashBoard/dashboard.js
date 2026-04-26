@@ -333,12 +333,45 @@ async function onSubmitForm(event) {
             body: JSON.stringify(payload),
         });
 
-        const data = await res.json();
-        if (!res.ok || !data.success) {
+        let data = await res.json();
+        if (!res.ok || !data.success || !data.job_id) {
             hideProgress();
             setMetric('resultMetric', 'Failed');
             setResult(`Status: Failed\nReason: ${data.error || 'Unknown error from API.'}`, 'status-error');
             return;
+        }
+
+        const jobId = data.job_id;
+        
+        // Polling loop (every 10 seconds)
+        while (true) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
+            try {
+                const pollRes = await fetchWithFallback(`/job/${jobId}`, {
+                    method: 'GET',
+                    headers: authHeaders()
+                });
+                const pollData = await pollRes.json();
+                
+                if (pollData.status === 'completed') {
+                    data = pollData;
+                    break;
+                } else if (pollData.status === 'error') {
+                    throw new Error(pollData.error || 'Job failed during execution.');
+                }
+                
+                // Update progress text if the backend provided one
+                if (pollData.progress) {
+                    const textEl = document.getElementById('progressText');
+                    if (textEl) textEl.textContent = pollData.progress;
+                }
+            } catch (err) {
+                 hideProgress();
+                 setMetric('resultMetric', 'Failed');
+                 setResult(`Status: Failed\nReason: ${err.message}`, 'status-error');
+                 return;
+            }
         }
 
         completeProgress();

@@ -383,7 +383,21 @@ curl -X POST http://localhost:5000/generate-and-push-to-github \
 
 ---
 
-## 11. Contributing
+## 11. Crucial Concept: Overcoming Free-Tier Timeouts
+
+One of the largest hurdles when deploying AI-generation platforms to free tier services (like Render) is the **strict 100-second HTTP connection timeout limit**. Because generating an entire codebase with AI natively takes anywhere from 1 to 3 minutes, a traditional synchronous HTTP request (`POST /generate-and-deploy`) would invariably get killed by the cloud provider's router, resulting in `504 Gateway Timeout` errors.
+
+To solve this, we implemented an **Asynchronous Job Polling Architecture**:
+1. When the frontend requests a generation, the `app.py` server spawns an independent Python `threading.Thread` and immediately returns a `202 Accepted` alongside a unique `job_id`. 
+2. The HTTP connection closes instantly, making the request incredibly lightweight and immune to timeouts.
+3. The frontend executes a passive `while (true)` loop, issuing a minimalist `GET /job/<job_id>` ping back to the server exactly every **10 seconds**.
+4. Once the backend thread finishes pushing to GitHub, the status flips to `completed`, and the loop downloads the generated result seamlessly!
+
+This architecture ensures the tool is **100% resilient** and entirely free to host, eliminating broken pipes and frozen frontends.
+
+---
+
+## 12. Contributing
 
 1. Fork the repository and create a feature branch: `git checkout -b feature/your-feature`
 2. Make your changes with clear, focused commits.
@@ -394,7 +408,7 @@ For bug reports, open a GitHub issue with the request payload, the full error me
 
 ---
 
-## 12. License
+## 13. License
 
 This project is licensed under the **MIT License**.
 
