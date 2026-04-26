@@ -1,5 +1,22 @@
-const API_BASE = '';
+const API_BASES = ['', 'https://bob-ai-1-jsgn.onrender.com'];
 const AUTH_STORAGE_KEY = 'bobai_session_token';
+
+async function fetchWithFallback(endpoint, options) {
+    let lastError;
+    for (const base of API_BASES) {
+        try {
+            const res = await fetch(`${base}${endpoint}`, options);
+            if (res.status >= 502 && res.status <= 504) {
+                lastError = new Error(`Server at ${base || 'primary'} returned ${res.status}`);
+                continue;
+            }
+            return res;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    throw lastError;
+}
 
 if (!localStorage.getItem(AUTH_STORAGE_KEY)) {
     window.location.replace('/index.html');
@@ -113,7 +130,7 @@ async function hydrateProfile() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/profile`, {
+        const res = await fetchWithFallback('/auth/profile', {
             method: 'GET',
             headers: authHeaders(),
         });
@@ -152,7 +169,7 @@ async function hydrateAuthState() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
+        const res = await fetchWithFallback('/auth/me', {
             method: 'GET',
             headers: authHeaders(),
         });
@@ -310,7 +327,7 @@ async function onSubmitForm(event) {
     showProgress();
 
     try {
-        const res = await fetch(`${API_BASE}/generate-and-deploy`, {
+        const res = await fetchWithFallback('/generate-and-deploy', {
             method: 'POST',
             headers: authHeaders(),
             body: JSON.stringify(payload),

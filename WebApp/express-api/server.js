@@ -5,7 +5,36 @@ const axios   = require('axios');
 const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT            || 3000;
-const FLASK = process.env.FLASK_BASE_URL || 'http://localhost:5000';
+const FLASK_URLS = [
+  process.env.FLASK_BASE_URL || 'http://localhost:5000',
+  'https://bob-ai-xv2g.onrender.com'
+];
+
+async function axiosWithFallback(method, path, dataOrOptions, maybeOptions) {
+  let lastError;
+  for (let base of FLASK_URLS) {
+    try {
+      if (method === 'get') {
+        const res = await axios.get(`${base}${path}`, dataOrOptions);
+        return res;
+      } else if (method === 'post') {
+        const res = await axios.post(`${base}${path}`, dataOrOptions, maybeOptions);
+        return res;
+      } else if (method === 'put') {
+        const res = await axios.put(`${base}${path}`, dataOrOptions, maybeOptions);
+        return res;
+      }
+    } catch (err) {
+      lastError = err;
+      if (!err.response || err.response.status >= 502) {
+        console.warn(`[Fallback] ${base} failed or returned ${err.response?.status}. Trying next...`);
+        continue;
+      }
+      break; 
+    }
+  }
+  throw lastError; 
+}
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors());
@@ -44,7 +73,7 @@ app.get('/health', async (_req, res) => {
 
 app.get('/health/upstream', async (_req, res) => {
   try {
-    const flaskRes = await axios.get(`${FLASK}/health`, { timeout: 5000 });
+    const flaskRes = await axiosWithFallback('get', '/health', { timeout: 5000 });
     res.status(flaskRes.status).json({
       gateway: 'ok',
       flask:   flaskRes.data,
@@ -65,8 +94,9 @@ app.get('/health/upstream', async (_req, res) => {
  */
 app.post('/generate-site', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/generate-website`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/generate-website',
       req.body,
       { timeout: 120_000 }, // AI generation can take up to ~2 min
     );
@@ -96,8 +126,9 @@ app.post('/generate-site', async (req, res) => {
  */
 app.post('/generate-and-deploy', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/generate-and-push-to-github`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/generate-and-push-to-github',
       req.body,
       {
         timeout: 180_000,
@@ -117,8 +148,9 @@ app.post('/generate-and-deploy', async (req, res) => {
  */
 app.post('/auth/signup', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/auth/signup`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/auth/signup',
       req.body,
       { timeout: 15_000 },
     );
@@ -130,8 +162,9 @@ app.post('/auth/signup', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/auth/login`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/auth/login',
       req.body,
       { timeout: 15_000 },
     );
@@ -143,8 +176,9 @@ app.post('/auth/login', async (req, res) => {
 
 app.post('/auth/signin', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/auth/signin`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/auth/signin',
       req.body,
       { timeout: 15_000 },
     );
@@ -156,8 +190,9 @@ app.post('/auth/signin', async (req, res) => {
 
 app.post('/contact', async (req, res) => {
   try {
-    const flaskRes = await axios.post(
-      `${FLASK}/contact`,
+    const flaskRes = await axiosWithFallback(
+      'post',
+      '/contact',
       req.body,
       { timeout: 15_000 },
     );
@@ -169,7 +204,7 @@ app.post('/contact', async (req, res) => {
 
 app.get('/auth/me', async (req, res) => {
   try {
-    const flaskRes = await axios.get(`${FLASK}/auth/me`, {
+    const flaskRes = await axiosWithFallback('get', '/auth/me', {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -183,7 +218,7 @@ app.get('/auth/me', async (req, res) => {
 
 app.get('/auth/profile', async (req, res) => {
   try {
-    const flaskRes = await axios.get(`${FLASK}/auth/profile`, {
+    const flaskRes = await axiosWithFallback('get', '/auth/profile', {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -197,7 +232,7 @@ app.get('/auth/profile', async (req, res) => {
 
 app.put('/auth/github-token', async (req, res) => {
   try {
-    const flaskRes = await axios.put(`${FLASK}/auth/github-token`, req.body, {
+    const flaskRes = await axiosWithFallback('put', '/auth/github-token', req.body, {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -231,10 +266,10 @@ function forwardError(err, res, route) {
   }
 
   if (err.code === 'ECONNREFUSED') {
-    console.error(`[${route}] Flask is not reachable at ${FLASK}`);
+    console.error(`[${route}] Flask is not reachable`);
     return res.status(503).json({
       error:  'Flask AI engine is unavailable',
-      detail: `Could not connect to ${FLASK} — make sure "python app.py" is running.`,
+      detail: `Could not connect to the Python AI engine — make sure "python app.py" is running.`,
     });
   }
 
@@ -266,6 +301,6 @@ setInterval(() => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
-  console.log(`Flask AI engine  →  ${FLASK}`);
+  console.log(`Flask AI engine  →  ${FLASK_URLS.join(', ')}`);
   console.log('Routes: GET /health | GET /health/upstream | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | POST /auth/signin | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
 });

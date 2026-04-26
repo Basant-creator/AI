@@ -4,9 +4,26 @@
 
 // ── Dropdown management ──────────────────────────────────────
 const DROPDOWN_IDS = ['loginDropdown', 'signupDropdown', 'tokenDropdown'];
-const API_BASE = '';
+const API_BASES = ['', 'https://bob-ai-1-jsgn.onrender.com'];
 const AUTH_STORAGE_KEY = 'bobai_session_token';
 let loginRequestInFlight = false;
+
+async function fetchWithFallback(endpoint, options) {
+    let lastError;
+    for (const base of API_BASES) {
+        try {
+            const res = await fetch(`${base}${endpoint}`, options);
+            if (res.status >= 502 && res.status <= 504) {
+                lastError = new Error(`Server at ${base || 'primary'} returned ${res.status}`);
+                continue;
+            }
+            return res;
+        } catch (err) {
+            lastError = err;
+        }
+    }
+    throw lastError;
+}
 
 function getSessionToken() {
     return localStorage.getItem(AUTH_STORAGE_KEY) || '';
@@ -56,7 +73,7 @@ async function hydrateSession() {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
+        const res = await fetchWithFallback('/auth/me', {
             method: 'GET',
             headers: authHeaders(),
         });
@@ -215,7 +232,7 @@ async function handleLogin(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/signin`, {
+        const res = await fetchWithFallback('/auth/signin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: identifier, gmail: identifier, password }),
@@ -263,7 +280,7 @@ async function handleSignup(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/signup`, {
+        const res = await fetchWithFallback('/auth/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -318,7 +335,7 @@ async function handleTokenUpdate(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/github-token`, {
+        const res = await fetchWithFallback('/auth/github-token', {
             method: 'PUT',
             headers: authHeaders(),
             body: JSON.stringify({ github_token: githubToken }),
@@ -365,7 +382,7 @@ async function handleContact(e) {
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
         
-        const res = await fetch(`${API_BASE}/contact`, {
+        const res = await fetchWithFallback('/contact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
