@@ -19,6 +19,10 @@
     {
       "source": "/contact",
       "destination": "https://bob-ai-1.onrender.com/contact"
+    },
+    {
+        "source": "/job/(.*)",
+        "destination": "https://bob-ai-1.onrender.com/job/$1"
     }
   ]
 }
