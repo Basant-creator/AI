@@ -26,8 +26,12 @@ async function axiosWithFallback(method, path, dataOrOptions, maybeOptions) {
       }
     } catch (err) {
       lastError = err;
-      if (!err.response || err.response.status >= 502) {
-        console.warn(`[Fallback] ${base} failed or returned ${err.response?.status}. Trying next...`);
+      
+      const isServerError = !err.response || err.response.status >= 502;
+      const isDistributedJobNotFound = err.response && err.response.status === 404 && path.startsWith('/job/');
+      
+      if (isServerError || isDistributedJobNotFound) {
+        console.warn(`[Fallback] ${base} failed or returned ${err.response?.status} for ${path}. Trying next...`);
         continue;
       }
       break; 
