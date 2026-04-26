@@ -354,10 +354,16 @@ async function onSubmitForm(event) {
                 });
                 const pollData = await pollRes.json();
                 
-                if (pollData.status === 'completed') {
-                    data = pollData;
-                    break;
-                } else if (pollData.status === 'error') {
+                if (!pollData.success && pollData.error === 'Job not found') {
+                    throw new Error('Job was lost. The server may have restarted seamlessly during generation. Please try again.');
+                }
+                
+                if (pollData.status === 'completed' || pollData.success) {
+                    if (pollData.status === 'completed') {
+                        data = pollData;
+                        break;
+                    }
+                } else if (pollData.status === 'error' || !pollData.success) {
                     throw new Error(pollData.error || 'Job failed during execution.');
                 }
                 
