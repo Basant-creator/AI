@@ -1,10 +1,10 @@
 flask
 gunicorn
 python-dotenv
-python-dotenv
 requests
 PyGithub
 pymongo
 cryptography
 bcrypt
 PyJWT
+google-generativeai
