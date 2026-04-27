@@ -399,34 +399,154 @@ def contact():
 # Configure Gemini API
 import google.generativeai as genai
 
-api_key = os.getenv('GEMINI_API_KEY')
-ai_init_error = None
+GEMINI_MODEL_DEFAULT = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
+NVIDIA_MODEL_DEFAULT = os.getenv('NVIDIA_MODEL', 'deepseek-ai/deepseek-v3.1').strip() or 'deepseek-ai/deepseek-v3.1'
+AI_PROVIDER_DEFAULT = os.getenv('AI_PROVIDER', 'gemini').strip().lower()
 
-if not api_key:
-    ai_init_error = 'GEMINI_API_KEY is not configured'
-    # Fallback to check if NVIDIA was renaming it in env or something
-    api_key = os.getenv('NVIDIA_API_KEY') 
-    if api_key:
-        print("Using NVIDIA_API_KEY env for GEMINI_API_KEY fallback")
-        genai.configure(api_key=api_key)
-        ai_init_error = None
+gemini_api_key = os.getenv('GEMINI_API_KEY', '').strip()
+nvidia_api_key = os.getenv('NVIDIA_API_KEY', '').strip()
 
-if not api_key:
+# Backward compatibility: allow NVIDIA_API_KEY to temporarily stand in for Gemini
+# when only one key was provided in older setups.
+if not gemini_api_key and nvidia_api_key:
+    print("Using NVIDIA_API_KEY env for GEMINI_API_KEY fallback")
+    gemini_api_key = nvidia_api_key
+
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
+    print("✓ Gemini API active")
+else:
     print("\n" + "="*60)
     print("WARNING: GEMINI_API_KEY not found")
-    print("The API will boot, but generation endpoints will return 503.")
+    print("Gemini provider requests will return 503 until configured.")
     print("="*60 + "\n")
-else:
-    genai.configure(api_key=api_key)
-    print("✓ Gemini API active")
 
-def _require_ai_client():
-    if not api_key:
+if not nvidia_api_key:
+    print("⚠ NVIDIA_API_KEY not set. NVIDIA provider requests will return 503.")
+
+
+def _normalize_provider(raw_provider):
+    provider = (raw_provider or AI_PROVIDER_DEFAULT or 'gemini').strip().lower()
+    if provider in ['gemini', 'google']:
+        return 'gemini'
+    if provider in ['nvidia', 'deepseek']:
+        return 'nvidia'
+    return None
+
+
+def _resolve_provider_and_model(data=None):
+    payload = data or {}
+    provider = _normalize_provider(payload.get('provider'))
+    if provider is None:
+        return None, None
+
+    requested_model = (payload.get('model') or '').strip()
+    if provider == 'gemini':
+        model_name = requested_model or GEMINI_MODEL_DEFAULT
+    else:
+        model_name = requested_model or NVIDIA_MODEL_DEFAULT
+
+    return provider, model_name
+
+
+def _require_ai_client(data=None):
+    provider, model_name = _resolve_provider_and_model(data)
+    if provider is None:
         return False, jsonify({
             'success': False,
-            'error': ai_init_error or 'Gemini API Key is missing'
-        }), 503
-    return True, None, None
+            'error': 'Unsupported provider. Use "gemini" or "nvidia".'
+        }), 400, None, None
+
+    if provider == 'gemini' and not gemini_api_key:
+        return False, jsonify({
+            'success': False,
+            'error': 'GEMINI_API_KEY is not configured for provider "gemini"'
+        }), 503, None, None
+
+    if provider == 'nvidia' and not nvidia_api_key:
+        return False, jsonify({
+            'success': False,
+            'error': 'NVIDIA_API_KEY is not configured for provider "nvidia"'
+        }), 503, None, None
+
+    return True, None, None, provider, model_name
+
+
+def _extract_gemini_text(response):
+    text = (getattr(response, 'text', None) or '').strip()
+    if text:
+        return text
+
+    candidates = getattr(response, 'candidates', None) or []
+    parts = []
+    for candidate in candidates:
+        content = getattr(candidate, 'content', None)
+        for part in getattr(content, 'parts', []) or []:
+            part_text = getattr(part, 'text', None)
+            if part_text:
+                parts.append(part_text)
+
+    return '\n'.join(parts).strip()
+
+
+def _generate_with_provider(prompt, provider, model_name):
+    if provider == 'gemini':
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(prompt)
+        generated_text = _extract_gemini_text(response)
+        if not generated_text:
+            raise Exception('Gemini returned an empty response')
+        return generated_text
+
+    max_tokens = _safe_int_env('NVIDIA_MAX_TOKENS', 4096)
+    timeout_seconds = _safe_int_env('NVIDIA_TIMEOUT_SECONDS', 300)
+    max_retries = _safe_int_env('NVIDIA_MAX_RETRIES', 3)
+
+    request_payload = {
+        'model': model_name,
+        'messages': [
+            {'role': 'user', 'content': prompt}
+        ],
+        'temperature': 0.2,
+        'max_tokens': max_tokens,
+    }
+
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(
+                'https://integrate.api.nvidia.com/v1/chat/completions',
+                headers={
+                    'Authorization': f'Bearer {nvidia_api_key}',
+                    'Content-Type': 'application/json',
+                },
+                json=request_payload,
+                timeout=timeout_seconds,
+            )
+
+            if not response.ok:
+                error_text = response.text.strip()[:600]
+                raise Exception(f'NVIDIA generation failed ({response.status_code}): {error_text}')
+
+            body = response.json()
+            choices = body.get('choices') or []
+            message = choices[0].get('message') if choices else {}
+            generated_text = (message or {}).get('content', '').strip()
+
+            if not generated_text:
+                raise Exception('NVIDIA provider returned an empty response')
+
+            return generated_text
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                # Short exponential backoff for transient upstream/network failures.
+                wait_seconds = min(2 ** (attempt - 1), 8)
+                print(f"NVIDIA request failed (attempt {attempt}/{max_retries}): {e}. Retrying in {wait_seconds}s...")
+                import time
+                time.sleep(wait_seconds)
+
+    raise Exception(f'NVIDIA generation failed after {max_retries} attempts: {last_error}')
 
 def parse_files_from_response(text):
     """
@@ -982,10 +1102,6 @@ def generate_website():
     }
     """
     try:
-        ok, error_response, status = _require_ai_client()
-        if not ok:
-            return error_response, status
-
         data = request.json
         
         # Validate input
@@ -1011,6 +1127,10 @@ def generate_website():
                 'success': False,
                 'error': 'Type must be either "vanilla" or "react"'
             }), 400
+
+        ok, error_response, status, provider, model_name = _require_ai_client(data)
+        if not ok:
+            return error_response, status
         
         # Generate appropriate prompt
         if project_type == 'vanilla':
@@ -1018,13 +1138,9 @@ def generate_website():
         else:
             prompt = get_react_prompt(user_description)
         
-        print(f"Generating {project_type} project for: {user_description}")
+        print(f"Generating {project_type} project for: {user_description} [provider={provider}, model={model_name}]")
         
-        # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        
-        generated_text = response.text
+        generated_text = _generate_with_provider(prompt, provider, model_name)
         files = parse_files_from_response(generated_text)
         
         # Validate that we got files
@@ -1039,6 +1155,8 @@ def generate_website():
         return jsonify({
             'success': True,
             'project_type': project_type,
+            'provider': provider,
+            'model': model_name,
             'files': files,
             'file_count': len(files)
         })
@@ -1072,7 +1190,7 @@ def get_job_status(job_id):
         return jsonify({'success': False, 'error': 'Job not found'}), 404
     return jsonify(job)
 
-def _worker_generation(job_id, data, current_user, resolved_token, token_source, save_token, payload_token):
+def _worker_generation(job_id, data, current_user, resolved_token, token_source, save_token, payload_token, provider, model_name):
     """Background worker for website generation and deployment."""
     try:
         user_description = data.get('description', '').strip()
@@ -1118,11 +1236,8 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
             prompt = get_react_prompt_enhanced(user_description, branding, social_media, contact)
         else:
             prompt = get_structured_prompt(user_description, structure_info, branding, social_media, contact)
-            
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        
-        generated_text = response.text
+
+        generated_text = _generate_with_provider(prompt, provider, model_name)
         files = parse_files_from_response(generated_text)
         
         if not files:
@@ -1188,6 +1303,8 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
             'status': 'completed',
             'success': True,
             'project_type': project_type,
+            'provider': provider,
+            'model': model_name,
             'structure': {
                 'type': structure_info['type'],
                 'description': structure_info['description'],
@@ -1236,13 +1353,13 @@ def generate_and_push_to_github():
     Returns: { "success": True, "job_id": "uuid" }
     """
     try:
-        ok, error_response, status_code = _require_ai_client()
-        if not ok:
-            return error_response, status_code
-
         data = request.json
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        ok, error_response, status_code, provider, model_name = _require_ai_client(data)
+        if not ok:
+            return error_response, status_code
         
         user_description = data.get('description', '').strip()
         if not user_description:
@@ -1282,11 +1399,17 @@ def generate_and_push_to_github():
         # We must create a copy of the current_user dict to avoid weird issues traversing thread context since it's an object with ObjectId.
         user_copy = dict(current_user) if current_user else None
         
-        thread = threading.Thread(target=_worker_generation, args=(job_id, data, user_copy, resolved_token, token_source, save_token, payload_token))
+        thread = threading.Thread(target=_worker_generation, args=(job_id, data, user_copy, resolved_token, token_source, save_token, payload_token, provider, model_name))
         thread.daemon = True
         thread.start()
 
-        return jsonify({'success': True, 'job_id': job_id, 'status': 'pending'}), 202
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'status': 'pending',
+            'provider': provider,
+            'model': model_name,
+        }), 202
     
     except Exception as e:
         import traceback

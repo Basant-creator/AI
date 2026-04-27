@@ -47,7 +47,7 @@
 | Layer | Technology |
 |-------|-----------|
 | API server | Python 3.10+ · Flask 3.x |
-| AI model | Google Gemini 2.5-flash (`google-generativeai`) |
+| AI model | Google Gemini and NVIDIA-hosted models (for example DeepSeek) |
 | Image source | Pexels REST API |
 | GitHub integration | PyGithub |
 | Environment config | python-dotenv |
@@ -148,6 +148,16 @@ Create a `.env` file in the project root using the template below:
 # Get yours at: https://makersuite.google.com/app/apikey
 GEMINI_API_KEY=
 
+# NVIDIA API key — used when provider is "nvidia"
+# Get yours at: https://build.nvidia.com/
+NVIDIA_API_KEY=
+
+# Default AI provider/model routing
+# AI_PROVIDER: gemini or nvidia
+AI_PROVIDER=gemini
+GEMINI_MODEL=gemini-2.5-flash
+NVIDIA_MODEL=deepseek-ai/deepseek-v3.1
+
 # GitHub Personal Access Token — used to create repos and push files
 # Required scopes: repo (full control of private repositories)
 # Create one at: https://github.com/settings/tokens
@@ -161,9 +171,15 @@ PEXELS_API_KEY=
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GEMINI_API_KEY` | Yes | Authenticates requests to Google Gemini 2.5-flash |
+| `GEMINI_API_KEY` | Yes* | Required when provider is `gemini` |
+| `NVIDIA_API_KEY` | Yes* | Required when provider is `nvidia` |
+| `AI_PROVIDER` | No | Default provider for generation requests (`gemini` or `nvidia`) |
+| `GEMINI_MODEL` | No | Default Gemini model if request does not include `model` |
+| `NVIDIA_MODEL` | No | Default NVIDIA model if request does not include `model` |
 | `GITHUB_TOKEN` | Yes | Allows the app to create repositories and push files on your behalf |
 | `PEXELS_API_KEY` | No | Enables real image fetching; without it, no images are injected |
+
+\* At least one AI provider key must be configured for the provider you use.
 
 ---
 
@@ -173,7 +189,7 @@ All endpoints accept and return `application/json`.
 
 ### `GET /health`
 
-Health check — confirms the server and Gemini API are operational.
+Health check — confirms the server process is operational.
 
 **Response**
 ```json
@@ -194,7 +210,9 @@ Generates website files and returns them in the response. Does **not** push to G
 ```json
 {
   "description": "A modern coffee shop website with an online menu and contact form",
-  "type": "vanilla"
+  "type": "vanilla",
+  "provider": "nvidia",
+  "model": "deepseek-ai/deepseek-v3.1"
 }
 ```
 
@@ -202,6 +220,8 @@ Generates website files and returns them in the response. Does **not** push to G
 |-------|------|----------|--------|
 | `description` | string | Yes | Plain-English description of the website |
 | `type` | string | No | `"vanilla"` (default) or `"react"` |
+| `provider` | string | No | `"gemini"` or `"nvidia"` (defaults to `AI_PROVIDER`) |
+| `model` | string | No | Provider-specific model name (defaults to `GEMINI_MODEL`/`NVIDIA_MODEL`) |
 
 **Response**
 
@@ -209,6 +229,8 @@ Generates website files and returns them in the response. Does **not** push to G
 {
   "success": true,
   "project_type": "vanilla",
+  "provider": "nvidia",
+  "model": "deepseek-ai/deepseek-v3.1",
   "files": {
     "index.html": "<!DOCTYPE html>...",
     "style.css": "body { ... }",
@@ -230,6 +252,8 @@ Full pipeline: detects structure → generates code → pushes to GitHub.
 {
   "description": "A SaaS dashboard with user login, analytics charts, and settings page",
   "type": "vanilla",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
   "company_name": "DashFlow",
   "tagline": "Analytics made simple",
   "primary_color": "#667eea",
@@ -249,6 +273,8 @@ Full pipeline: detects structure → generates code → pushes to GitHub.
 |-------|------|----------|-------------|
 | `description` | string | Yes | Plain-English website description |
 | `type` | string | No | `"vanilla"` (default) or `"react"` |
+| `provider` | string | No | `"gemini"` or `"nvidia"` |
+| `model` | string | No | Provider-specific model name |
 | `company_name` | string | No | Brand name applied across all files |
 | `tagline` | string | No | Tagline used in hero section |
 | `primary_color` | string | No | Hex code for main brand colour (default: `#667eea`) |
@@ -262,6 +288,8 @@ Full pipeline: detects structure → generates code → pushes to GitHub.
 {
   "success": true,
   "project_type": "vanilla",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
   "structure": {
     "type": "full_stack_app",
     "description": "Full-stack web application with auth",
@@ -353,6 +381,9 @@ curl -X POST http://localhost:5000/generate-and-push-to-github \
 
 5. Add environment variables under **Environment**:
    - `GEMINI_API_KEY`
+  - `NVIDIA_API_KEY` *(if using provider=`nvidia`)*
+  - `AI_PROVIDER` *(optional default: `gemini` or `nvidia`)*
+  - `GEMINI_MODEL` / `NVIDIA_MODEL` *(optional defaults)*
    - `GITHUB_TOKEN`
    - `PEXELS_API_KEY` *(optional)*
 
@@ -364,9 +395,10 @@ curl -X POST http://localhost:5000/generate-and-push-to-github \
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| `GEMINI_API_KEY not found` | Env var not set on host | Add `GEMINI_API_KEY` in the hosting dashboard |
+| `GEMINI_API_KEY is not configured for provider "gemini"` | Gemini selected without key | Add `GEMINI_API_KEY` or switch provider |
+| `NVIDIA_API_KEY is not configured for provider "nvidia"` | NVIDIA selected without key | Add `NVIDIA_API_KEY` or switch provider |
 | `No GitHub token provided` | `GITHUB_TOKEN` missing | Add `GITHUB_TOKEN` with `repo` scope |
-| `Failed to parse files from AI response` | Gemini returned unexpected format | Retry — the model occasionally produces malformed output |
+| `Failed to parse files from AI response` | Provider returned unexpected format | Retry — the model occasionally produces malformed output |
 | `422 Unprocessable Entity` from GitHub | Repo name already exists | The app auto-retries with a timestamp suffix; check your GitHub account |
 | `gunicorn: command not found` | Not in requirements | Run `pip install gunicorn` and add it to `requirements.txt` |
 
