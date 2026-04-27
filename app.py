@@ -397,25 +397,34 @@ def contact():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Configure Gemini API
-import requests
+import google.generativeai as genai
 
-api_key = os.getenv('NVIDIA_API_KEY')
+api_key = os.getenv('GEMINI_API_KEY')
 ai_init_error = None
 
 if not api_key:
-    ai_init_error = 'NVIDIA_API_KEY is not configured'
+    ai_init_error = 'GEMINI_API_KEY is not configured'
+    # Fallback to check if NVIDIA was renaming it in env or something
+    api_key = os.getenv('NVIDIA_API_KEY') 
+    if api_key:
+        print("Using NVIDIA_API_KEY env for GEMINI_API_KEY fallback")
+        genai.configure(api_key=api_key)
+        ai_init_error = None
+
+if not api_key:
     print("\n" + "="*60)
-    print("WARNING: NVIDIA_API_KEY not found")
+    print("WARNING: GEMINI_API_KEY not found")
     print("The API will boot, but generation endpoints will return 503.")
     print("="*60 + "\n")
 else:
-    print("✓ NVIDIA NIM API active")
+    genai.configure(api_key=api_key)
+    print("✓ Gemini API active")
 
 def _require_ai_client():
     if not api_key:
         return False, jsonify({
             'success': False,
-            'error': ai_init_error or 'NVIDIA API Key is missing'
+            'error': ai_init_error or 'Gemini API Key is missing'
         }), 503
     return True, None, None
 
@@ -973,7 +982,7 @@ def generate_website():
     }
     """
     try:
-        ok, error_response, status = _require_gemini_client()
+        ok, error_response, status = _require_ai_client()
         if not ok:
             return error_response, status
 
@@ -1012,21 +1021,10 @@ def generate_website():
         print(f"Generating {project_type} project for: {user_description}")
         
         # Call Gemini API
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "meta/llama-3.1-70b-instruct",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.4,
-            "max_tokens": 4096
-        }
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
         
-        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=300)
-        response.raise_for_status()
-        
-        generated_text = response.json()['choices'][0]['message']['content']
+        generated_text = response.text
         files = parse_files_from_response(generated_text)
         
         # Validate that we got files
@@ -1121,22 +1119,10 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
         else:
             prompt = get_structured_prompt(user_description, structure_info, branding, social_media, contact)
             
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "meta/llama-3.1-70b-instruct",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.4,
-            "max_tokens": 4096
-        }
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(prompt)
         
-        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=300)
-        if response.status_code != 200:
-            raise Exception(f"AI API Error: {response.text}")
-            
-        generated_text = response.json()['choices'][0]['message']['content']
+        generated_text = response.text
         files = parse_files_from_response(generated_text)
         
         if not files:
