@@ -154,9 +154,9 @@ NVIDIA_API_KEY=
 
 # Default AI provider/model routing
 # AI_PROVIDER: gemini or nvidia
-AI_PROVIDER=gemini
+AI_PROVIDER=nvidia
 GEMINI_MODEL=gemini-2.5-flash
-NVIDIA_MODEL=deepseek-ai/deepseek-v3.1
+NVIDIA_MODEL=deepseek-ai/deepseek-v4-flash
 
 # GitHub Personal Access Token — used to create repos and push files
 # Required scopes: repo (full control of private repositories)

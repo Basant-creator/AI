@@ -400,8 +400,8 @@ def contact():
 import google.generativeai as genai
 
 GEMINI_MODEL_DEFAULT = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
-NVIDIA_MODEL_DEFAULT = os.getenv('NVIDIA_MODEL', 'deepseek-ai/deepseek-v3.1').strip() or 'deepseek-ai/deepseek-v3.1'
-AI_PROVIDER_DEFAULT = os.getenv('AI_PROVIDER', 'gemini').strip().lower()
+NVIDIA_MODEL_DEFAULT = os.getenv('NVIDIA_MODEL', 'deepseek-ai/deepseek-v4-flash').strip() or 'deepseek-ai/deepseek-v4-flash'
+AI_PROVIDER_DEFAULT = os.getenv('AI_PROVIDER', 'nvidia').strip().lower()
 
 gemini_api_key = os.getenv('GEMINI_API_KEY', '').strip()
 nvidia_api_key = os.getenv('NVIDIA_API_KEY', '').strip()
@@ -426,7 +426,7 @@ if not nvidia_api_key:
 
 
 def _normalize_provider(raw_provider):
-    provider = (raw_provider or AI_PROVIDER_DEFAULT or 'gemini').strip().lower()
+    provider = (raw_provider or AI_PROVIDER_DEFAULT or 'nvidia').strip().lower()
     if provider in ['gemini', 'google']:
         return 'gemini'
     if provider in ['nvidia', 'deepseek']:

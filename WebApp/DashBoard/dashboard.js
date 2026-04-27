@@ -195,6 +195,8 @@ function collectPayload(form) {
     return {
         description: normalizeValue(formData, 'description'),
         type: normalizeValue(formData, 'type') || 'vanilla',
+        provider: 'nvidia',
+        model: 'deepseek-ai/deepseek-v4-flash',
         website_type: normalizeValue(formData, 'website_type') || '',
         company_name: normalizeValue(formData, 'company_name'),
         tagline: normalizeValue(formData, 'tagline'),
