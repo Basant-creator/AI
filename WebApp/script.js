@@ -4,7 +4,7 @@
 
 // ── Dropdown management ──────────────────────────────────────
 const DROPDOWN_IDS = ['loginDropdown', 'signupDropdown', 'tokenDropdown'];
-const API_BASES = ['', 'https://bob-ai-1-jsgn.onrender.com'];
+const API_BASES = ['', 'https://bob-ai-1-jsgn.onrender.com', 'https://bob-ai-1.onrender.com'];
 const AUTH_STORAGE_KEY = 'bobai_session_token';
 let loginRequestInFlight = false;
 

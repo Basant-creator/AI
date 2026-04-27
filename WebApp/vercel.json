@@ -1,28 +1,28 @@
-{
+ {
   "rewrites": [
     {
       "source": "/auth/(.*)",
-      "destination": "https://bob-ai-1.onrender.com/auth/$1"
+      "destination": "https://bob-ai-1-jsgn.onrender.com/auth/$1"
     },
     {
       "source": "/generate-site",
-      "destination": "https://bob-ai-1.onrender.com/generate-site"
+      "destination": "https://bob-ai-1-jsgn.onrender.com/generate-site"
     },
     {
       "source": "/generate-and-deploy",
-      "destination": "https://bob-ai-1.onrender.com/generate-and-deploy"
+      "destination": "https://bob-ai-1-jsgn.onrender.com/generate-and-deploy"
     },
     {
       "source": "/health",
-      "destination": "https://bob-ai-1.onrender.com/health"
+      "destination": "https://bob-ai-1-jsgn.onrender.com/health"
     },
     {
       "source": "/contact",
-      "destination": "https://bob-ai-1.onrender.com/contact"
+      "destination": "https://bob-ai-1-jsgn.onrender.com/contact"
     },
     {
         "source": "/job/(.*)",
-        "destination": "https://bob-ai-1.onrender.com/job/$1"
+        "destination": "https://bob-ai-1-jsgn.onrender.com/job/$1"
     }
   ]
 }
