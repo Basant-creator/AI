@@ -266,7 +266,8 @@ function showProgress() {
     const updateProgress = (stepIndex) => {
         if (stepIndex >= steps.length) return;
         const step = steps[stepIndex];
-        if (textEl) textEl.textContent = step.text;
+        // Stop overwriting textEl so the backend's precise progress is shown
+        // if (textEl) textEl.textContent = step.text; 
         if (barEl) barEl.style.width = step.pct + '%';
         if (pctEl) pctEl.textContent = step.pct + '%';
     };

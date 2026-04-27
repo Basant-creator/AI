@@ -28,7 +28,7 @@ class GitHubManager:
         if not self.token:
             raise ValueError("No GitHub token provided")
         
-        self.github = Github(self.token)
+        self.github = Github(self.token, timeout=30)
         self.user = self.github.get_user()
     
     def generate_repo_name(self, description):

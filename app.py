@@ -397,30 +397,25 @@ def contact():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Configure Gemini API
-api_key = os.getenv('GEMINI_API_KEY')
-client = None
-gemini_init_error = None
+import requests
+
+api_key = os.getenv('NVIDIA_API_KEY')
+ai_init_error = None
 
 if not api_key:
-    gemini_init_error = 'GEMINI_API_KEY is not configured'
+    ai_init_error = 'NVIDIA_API_KEY is not configured'
     print("\n" + "="*60)
-    print("WARNING: GEMINI_API_KEY not found")
+    print("WARNING: NVIDIA_API_KEY not found")
     print("The API will boot, but generation endpoints will return 503.")
     print("="*60 + "\n")
 else:
-    try:
-        client = genai.Client(api_key=api_key)
-        print("✓ Gemini API configured successfully")
-    except Exception as e:
-        gemini_init_error = f"Gemini initialization failed: {e}"
-        print(f"\n✗ {gemini_init_error}")
+    print("✓ NVIDIA NIM API active")
 
-
-def _require_gemini_client():
-    if client is None:
+def _require_ai_client():
+    if not api_key:
         return False, jsonify({
             'success': False,
-            'error': gemini_init_error or 'Gemini client is not configured'
+            'error': ai_init_error or 'NVIDIA API Key is missing'
         }), 503
     return True, None, None
 
@@ -1017,10 +1012,21 @@ def generate_website():
         print(f"Generating {project_type} project for: {user_description}")
         
         # Call Gemini API
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        generated_text = response.text
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta/llama-3.1-70b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.4,
+            "max_tokens": 4096
+        }
         
-        # Parse files from response
+        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=90)
+        response.raise_for_status()
+        
+        generated_text = response.json()['choices'][0]['message']['content']
         files = parse_files_from_response(generated_text)
         
         # Validate that we got files
@@ -1115,8 +1121,23 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
         else:
             prompt = get_structured_prompt(user_description, structure_info, branding, social_media, contact)
             
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        files = parse_files_from_response(response.text)
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta/llama-3.1-70b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.4,
+            "max_tokens": 4096
+        }
+        
+        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=90)
+        if response.status_code != 200:
+            raise Exception(f"AI API Error: {response.text}")
+            
+        generated_text = response.json()['choices'][0]['message']['content']
+        files = parse_files_from_response(generated_text)
         
         if not files:
             raise Exception("Failed to parse files from AI response")
@@ -1229,7 +1250,7 @@ def generate_and_push_to_github():
     Returns: { "success": True, "job_id": "uuid" }
     """
     try:
-        ok, error_response, status_code = _require_gemini_client()
+        ok, error_response, status_code = _require_ai_client()
         if not ok:
             return error_response, status_code
 
