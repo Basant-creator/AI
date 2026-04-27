@@ -1023,7 +1023,7 @@ def generate_website():
             "max_tokens": 4096
         }
         
-        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=90)
+        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=300)
         response.raise_for_status()
         
         generated_text = response.json()['choices'][0]['message']['content']
@@ -1132,7 +1132,7 @@ def _worker_generation(job_id, data, current_user, resolved_token, token_source,
             "max_tokens": 4096
         }
         
-        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=90)
+        response = requests.post("https://integrate.api.nvidia.com/v1/chat/completions", headers=headers, json=payload, timeout=300)
         if response.status_code != 200:
             raise Exception(f"AI API Error: {response.text}")
             
