@@ -120,31 +120,54 @@ class GitHubManager:
                     f"attempt {attempt}/{max_attempts}): {e.data}"
                 )
     
-    def _create_or_update_file(self, repo, path, message, content):
+    def _push_files_via_tree(self, repo, all_files):
         """
-        Create a file or update it if it already exists (fetches sha automatically).
+        Push every file in a single commit using the low-level Git Data API.
+
+        Steps (3 API calls total, regardless of file count):
+          1. Create a git tree with all file blobs
+          2. Create a commit pointing to that tree
+          3. Update refs/heads/main to that commit
         """
+        tree_items = []
+        for path, content in all_files.items():
+            # InputGitTreeElement: mode 100644 = regular file, type blob
+            tree_items.append({
+                'path': path,
+                'mode': '100644',
+                'type': 'blob',
+                'content': content,
+            })
+
+        # 1. Create the tree (no base_tree → brand-new root)
+        git_tree = repo.create_git_tree(
+            [repo.create_git_tree_element(**item) for item in tree_items]
+        )
+
+        # 2. Create the commit
+        commit = repo.create_git_commit(
+            message='Initial commit: AI-generated website',
+            tree=git_tree,
+            parents=[],
+        )
+
+        # 3. Point main branch at the new commit
+        #    New repos may not have any ref yet, so create it if needed.
         try:
-            existing = repo.get_contents(path)
-            repo.update_file(
-                path=path,
-                message=message,
-                content=content,
-                sha=existing.sha
-            )
-        except GithubException as e:
-            if e.status == 404:
-                repo.create_file(
-                    path=path,
-                    message=message,
-                    content=content
-                )
-            else:
-                raise
+            ref = repo.get_git_ref('heads/main')
+            ref.edit(sha=commit.sha, force=True)
+        except GithubException:
+            repo.create_git_ref(ref=f'refs/heads/main', sha=commit.sha)
+
+        return repo.html_url
 
     def push_files(self, repo, files, description="", branding=None, structure_info=None):
         """
-        Push multiple files to the repository.
+        Push multiple files to the repository in a single atomic commit.
+
+        Uses the Git Trees API so that ALL files (including the README) land
+        in one commit with only ~3 GitHub API calls — avoiding the secondary
+        rate limit that the old file-by-file approach triggered.
 
         Args:
             repo          : GitHub repository object
@@ -157,7 +180,8 @@ class GitHubManager:
             Repository URL
         """
         try:
-            print(f"Pushing {len(files)} files to repository...")
+            total = len(files) + 1  # +1 for README
+            print(f"Pushing {total} files to repository (single commit)...")
 
             # Build a rich README using the dedicated builder
             readme_content = build_readme(
@@ -167,28 +191,14 @@ class GitHubManager:
                 files=files,
             )
 
-            # Push README first
-            self._create_or_update_file(
-                repo=repo,
-                path="README.md",
-                message="Initial commit: Add README",
-                content=readme_content
-            )
-            print("✓ README.md created")
-            
-            # Push all generated files
-            for filename, content in files.items():
-                self._create_or_update_file(
-                    repo=repo,
-                    path=filename,
-                    message=f"Add {filename}",
-                    content=content
-                )
-                print(f"✓ {filename} pushed")
-            
-            print(f"✓ All files pushed successfully!")
-            return repo.html_url
-            
+            # Combine README + generated files
+            all_files = {'README.md': readme_content}
+            all_files.update(files)
+
+            repo_url = self._push_files_via_tree(repo, all_files)
+            print(f"✓ All {total} files pushed in one commit!")
+            return repo_url
+
         except Exception as e:
             raise Exception(f"Failed to push files: {str(e)}")
     
