@@ -5,10 +5,16 @@ const axios   = require('axios');
 const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT            || 3000;
-const FLASK_URLS = [
-  process.env.FLASK_BASE_URL || 'http://localhost:5000',
-  'https://bob-ai-xv2g.onrender.com'
-];
+const FLASK_URLS = [];
+if (process.env.FLASK_BASE_URL) {
+  FLASK_URLS.push(process.env.FLASK_BASE_URL);
+} else {
+  // Only try localhost if we are not running on Render
+  if (!process.env.RENDER) {
+    FLASK_URLS.push('http://localhost:5000');
+  }
+  FLASK_URLS.push('https://bob-ai-xv2g.onrender.com');
+}
 
 async function axiosWithFallback(method, path, dataOrOptions, maybeOptions) {
   let lastError;
