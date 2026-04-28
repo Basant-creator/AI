@@ -31,61 +31,74 @@ class GitHubManager:
         self.github = Github(self.token, timeout=30)
         self.user = self.github.get_user()
     
-    def generate_repo_name(self, description):
+    def generate_repo_name(self, description, company_name=None):
         """
-        Generate a unique, valid GitHub repository name from description
+        Generate a unique, valid GitHub repository name.
+
+        Priority:
+          1. company_name (e.g. "Gym Max" → gym-max-20260428-170539)
+          2. First 3 words of description as fallback
         """
-        # Clean the description
-        clean_desc = description.lower()
+        # Prefer the company name when provided
+        source = (company_name or '').strip() or description
+        clean = source.lower()
         # Remove special characters, keep only alphanumeric and spaces
-        clean_desc = re.sub(r'[^a-z0-9\s]', '', clean_desc)
-        # Take first 3-4 words
-        words = clean_desc.split()[:3]
+        clean = re.sub(r'[^a-z0-9\s]', '', clean)
+        words = clean.split()[:4]
         base_name = '-'.join(words) if words else 'ai-website'
-        
+
         # Add timestamp for uniqueness
         timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
         repo_name = f"{base_name}-{timestamp}"
-        
+
         # GitHub repo names must be <= 100 characters
         if len(repo_name) > 100:
             repo_name = repo_name[:100]
-        
+
         return repo_name
     
     def create_repository(self, repo_name, description="AI Generated Website", private=False):
         """
-        Create a new GitHub repository
-        
+        Create a new GitHub repository, retrying with a counter suffix if the
+        name is already taken.  Avoids the old recursive-timestamp approach that
+        could produce absurdly long names and 403 errors.
+
         Args:
             repo_name: Name of the repository
             description: Repository description
             private: Whether repo should be private (default: False)
-        
+
         Returns:
             GitHub repository object
         """
-        try:
-            print(f"Creating GitHub repository: {repo_name}")
-            
-            repo = self.user.create_repo(
-                name=repo_name,
-                description=description,
-                private=private,
-                auto_init=False  # We'll add files manually
-            )
-            
-            print(f"✓ Repository created: {repo.html_url}")
-            return repo
-            
-        except GithubException as e:
-            if e.status == 422:
-                # Repository already exists, try with different name
-                new_name = f"{repo_name}-{datetime.datetime.now().strftime('%H%M%S')}"
-                print(f"Repository exists, trying: {new_name}")
-                return self.create_repository(new_name, description, private)
-            else:
-                raise Exception(f"Failed to create repository: {str(e)}")
+        max_attempts = 5
+        # Keep the base name short enough so suffixes always fit within 100 chars.
+        base_name = repo_name[:90]
+        candidate = base_name
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                print(f"Creating GitHub repository: {candidate}")
+                repo = self.user.create_repo(
+                    name=candidate,
+                    description=description,
+                    private=private,
+                    auto_init=False,
+                )
+                print(f"✓ Repository created: {repo.html_url}")
+                return repo
+
+            except GithubException as e:
+                if e.status == 422 and attempt < max_attempts:
+                    # Name already taken — append a short counter suffix.
+                    candidate = f"{base_name}-{attempt + 1}"
+                    print(f"Repository exists, trying: {candidate}")
+                    continue
+
+                raise Exception(
+                    f"Failed to create repository (HTTP {e.status} on "
+                    f"attempt {attempt}/{max_attempts}): {e.data}"
+                )
     
     def _create_or_update_file(self, repo, path, message, content):
         """
@@ -174,7 +187,8 @@ class GitHubManager:
         """
         try:
             # Generate unique repo name
-            repo_name = self.generate_repo_name(description)
+            company = (branding or {}).get('company_name', '')
+            repo_name = self.generate_repo_name(description, company_name=company)
 
             # Create repository
             repo = self.create_repository(
