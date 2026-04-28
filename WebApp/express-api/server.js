@@ -1,9 +1,9 @@
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const axios   = require('axios');
-const path    = require('path');
-const app  = express();
+const cors = require('cors');
+const axios = require('axios');
+const path = require('path');
+const app = express();
 const PORT = process.env.PORT || 3000;
 const FLASK_BASE_URL = process.env.FLASK_BASE_URL || 'https://bob-ai-xv2g.onrender.com';
 
@@ -52,7 +52,7 @@ app.get('/health/upstream', async (_req, res) => {
     const flaskRes = await axios.get(`${FLASK_BASE_URL}/health`);
     res.status(flaskRes.status).json({
       gateway: 'ok',
-      flask:   flaskRes.data,
+      flask: flaskRes.data,
     });
   } catch (err) {
     forwardError(err, res, 'health');
@@ -103,11 +103,11 @@ app.post('/generate-site', async (req, res) => {
 app.post('/generate-and-deploy', async (req, res) => {
   try {
     const flaskRes = await axios.post(`${FLASK_BASE_URL}/generate-and-push-to-github`, req.body, {
-        timeout: 180_000,
-        headers: {
-          Authorization: req.headers.authorization || '',
-        },
-      }, // generation + GitHub push — allow 3 min
+      timeout: 180_000,
+      headers: {
+        Authorization: req.headers.authorization || '',
+      },
+    }, // generation + GitHub push — allow 3 min
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -235,7 +235,7 @@ function forwardError(err, res, route) {
   if (err.code === 'ECONNREFUSED') {
     console.error(`[${route}] Flask is not reachable`);
     return res.status(503).json({
-      error:  'Flask AI engine is unavailable',
+      error: 'Flask AI engine is unavailable',
       detail: `Could not connect to the Python AI engine — make sure "python app.py" is running.`,
     });
   }
@@ -243,7 +243,7 @@ function forwardError(err, res, route) {
   if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
     console.error(`[${route}] Flask timed out`);
     return res.status(504).json({
-      error:  'Flask AI engine timed out',
+      error: 'Flask AI engine timed out',
       detail: 'The request took too long. Try again or increase the timeout.',
     });
   }
