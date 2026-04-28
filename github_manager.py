@@ -1,4 +1,4 @@
-from github import Github, GithubException
+from github import Github, GithubException, InputGitTreeElement
 import time as _time
 import os
 from dotenv import load_dotenv
@@ -141,7 +141,7 @@ class GitHubManager:
 
         # 1. Create the tree (no base_tree → brand-new root)
         git_tree = repo.create_git_tree(
-            [repo.create_git_tree_element(**item) for item in tree_items]
+            [InputGitTreeElement(**item) for item in tree_items]
         )
 
         # 2. Create the commit
