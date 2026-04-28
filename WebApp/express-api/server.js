@@ -5,7 +5,7 @@ const axios   = require('axios');
 const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const FLASK_BASE_URL = process.env.FLASK_BASE_URL || (process.env.RENDER ? 'https://bob-ai-xv2g.onrender.com' : 'http://localhost:5000');
+const FLASK_BASE_URL = process.env.FLASK_BASE_URL || 'https://bob-ai-xv2g.onrender.com';
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors({
