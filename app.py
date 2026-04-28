@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 import os
 from dotenv import load_dotenv
@@ -23,6 +24,7 @@ from github_manager import GitHubManager
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 JOBS_DB = {}
 
 def _safe_int_env(var_name, default):

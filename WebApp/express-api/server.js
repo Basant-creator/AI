@@ -41,7 +41,12 @@ async function axiosWithFallback(method, path, dataOrOptions, maybeOptions) {
 }
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+app.options('*', cors());
 app.use(express.json());
 
 // Request logger (lightweight, no external package needed)
