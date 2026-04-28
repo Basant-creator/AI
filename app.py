@@ -402,7 +402,7 @@ def contact():
 import google.generativeai as genai
 
 GEMINI_MODEL_DEFAULT = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash').strip() or 'gemini-2.5-flash'
-NVIDIA_MODEL_DEFAULT = os.getenv('NVIDIA_MODEL', 'deepseek-ai/deepseek-v4-flash').strip() or 'deepseek-ai/deepseek-v4-flash'
+NVIDIA_MODEL_DEFAULT = os.getenv('NVIDIA_MODEL', 'moonshotai/kimi-k2-instruct').strip() or 'moonshotai/kimi-k2-instruct'
 AI_PROVIDER_DEFAULT = os.getenv('AI_PROVIDER', 'nvidia').strip().lower()
 
 gemini_api_key = os.getenv('GEMINI_API_KEY', '').strip()

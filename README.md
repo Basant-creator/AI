@@ -47,7 +47,7 @@
 | Layer | Technology |
 |-------|-----------|
 | API server | Python 3.10+ · Flask 3.x |
-| AI model | Google Gemini and NVIDIA-hosted models (for example DeepSeek) |
+| AI model | Google Gemini and NVIDIA-hosted models (for example Kimi K2) |
 | Image source | Pexels REST API |
 | GitHub integration | PyGithub |
 | Environment config | python-dotenv |
@@ -156,7 +156,7 @@ NVIDIA_API_KEY=
 # AI_PROVIDER: gemini or nvidia
 AI_PROVIDER=nvidia
 GEMINI_MODEL=gemini-2.5-flash
-NVIDIA_MODEL=deepseek-ai/deepseek-v4-flash
+NVIDIA_MODEL=moonshotai/kimi-k2-instruct
 
 # GitHub Personal Access Token — used to create repos and push files
 # Required scopes: repo (full control of private repositories)
@@ -212,7 +212,7 @@ Generates website files and returns them in the response. Does **not** push to G
   "description": "A modern coffee shop website with an online menu and contact form",
   "type": "vanilla",
   "provider": "nvidia",
-  "model": "deepseek-ai/deepseek-v3.1"
+  "model": "moonshotai/kimi-k2-instruct"
 }
 ```
 
@@ -230,7 +230,7 @@ Generates website files and returns them in the response. Does **not** push to G
   "success": true,
   "project_type": "vanilla",
   "provider": "nvidia",
-  "model": "deepseek-ai/deepseek-v3.1",
+  "model": "moonshotai/kimi-k2-instruct",
   "files": {
     "index.html": "<!DOCTYPE html>...",
     "style.css": "body { ... }",

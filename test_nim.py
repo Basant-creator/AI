@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv('NVIDIA_API_KEY')
 
-print("Testing NIM connectivity with meta/llama-3.1-8b-instruct")
+print("Testing NIM connectivity with moonshotai/kimi-k2-instruct")
 
 try:
     response = requests.post(
@@ -14,8 +14,8 @@ try:
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
         },
-        json={'model': 'meta/llama-3.1-8b-instruct', 'messages': [{'role': 'user', 'content': 'hi'}], 'max_tokens': 10},
-        timeout=10,
+        json={'model': 'moonshotai/kimi-k2-instruct', 'messages': [{'role': 'user', 'content': 'hi'}], 'max_tokens': 10},
+        timeout=30,
     )
     print(f"Status: {response.status_code}")
     print(response.text[:200])

@@ -179,7 +179,7 @@ function collectPayload(form) {
         description: normalizeValue(formData, 'description'),
         type: normalizeValue(formData, 'type') || 'vanilla',
         provider: 'nvidia',
-        model: 'meta/llama-3.1-8b-instruct',
+        model: 'moonshotai/kimi-k2-instruct',
         website_type: normalizeValue(formData, 'website_type') || '',
         company_name: normalizeValue(formData, 'company_name'),
         tagline: normalizeValue(formData, 'tagline'),
