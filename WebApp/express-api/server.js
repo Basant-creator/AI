@@ -4,47 +4,8 @@ const cors    = require('cors');
 const axios   = require('axios');
 const path    = require('path');
 const app  = express();
-const PORT = process.env.PORT            || 3000;
-const FLASK_URLS = [];
-if (process.env.FLASK_BASE_URL) {
-  FLASK_URLS.push(process.env.FLASK_BASE_URL);
-} else {
-  // Only try localhost if we are not running on Render
-  if (!process.env.RENDER) {
-    FLASK_URLS.push('http://localhost:5000');
-  }
-  FLASK_URLS.push('https://bob-ai-xv2g.onrender.com');
-}
-
-async function axiosWithFallback(method, path, dataOrOptions, maybeOptions) {
-  let lastError;
-  for (let base of FLASK_URLS) {
-    try {
-      if (method === 'get') {
-        const res = await axios.get(`${base}${path}`, dataOrOptions);
-        return res;
-      } else if (method === 'post') {
-        const res = await axios.post(`${base}${path}`, dataOrOptions, maybeOptions);
-        return res;
-      } else if (method === 'put') {
-        const res = await axios.put(`${base}${path}`, dataOrOptions, maybeOptions);
-        return res;
-      }
-    } catch (err) {
-      lastError = err;
-      
-      const isServerError = !err.response || err.response.status >= 502;
-      const isDistributedJobNotFound = err.response && err.response.status === 404 && path.startsWith('/job/');
-      
-      if (isServerError || isDistributedJobNotFound) {
-        console.warn(`[Fallback] ${base} failed or returned ${err.response?.status} for ${path}. Trying next...`);
-        continue;
-      }
-      break; 
-    }
-  }
-  throw lastError; 
-}
+const PORT = process.env.PORT || 3000;
+const FLASK_BASE_URL = process.env.FLASK_BASE_URL || (process.env.RENDER ? 'https://bob-ai-xv2g.onrender.com' : 'http://localhost:5000');
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 app.use(cors({
@@ -88,7 +49,7 @@ app.get('/health', async (_req, res) => {
 
 app.get('/health/upstream', async (_req, res) => {
   try {
-    const flaskRes = await axiosWithFallback('get', '/health', { timeout: 5000 });
+    const flaskRes = await axios.get(`${FLASK_BASE_URL}/health`);
     res.status(flaskRes.status).json({
       gateway: 'ok',
       flask:   flaskRes.data,
@@ -141,11 +102,7 @@ app.post('/generate-site', async (req, res) => {
  */
 app.post('/generate-and-deploy', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/generate-and-push-to-github',
-      req.body,
-      {
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/generate-and-push-to-github`, req.body, {
         timeout: 180_000,
         headers: {
           Authorization: req.headers.authorization || '',
@@ -160,7 +117,7 @@ app.post('/generate-and-deploy', async (req, res) => {
 
 app.get('/job/:jobId', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback('get', `/job/${req.params.jobId}`, {
+    const flaskRes = await axios.get(`${FLASK_BASE_URL}/job/${req.params.jobId}`, {
       timeout: 10_000
     });
     res.status(flaskRes.status).json(flaskRes.data);
@@ -174,11 +131,7 @@ app.get('/job/:jobId', async (req, res) => {
  */
 app.post('/auth/signup', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/auth/signup',
-      req.body,
-      { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signup`, req.body, { timeout: 15_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -188,11 +141,7 @@ app.post('/auth/signup', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/auth/login',
-      req.body,
-      { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/login`, req.body, { timeout: 15_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -202,11 +151,7 @@ app.post('/auth/login', async (req, res) => {
 
 app.post('/auth/signin', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/auth/signin',
-      req.body,
-      { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signin`, req.body, { timeout: 15_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -216,11 +161,7 @@ app.post('/auth/signin', async (req, res) => {
 
 app.post('/contact', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/contact',
-      req.body,
-      { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/contact`, req.body, { timeout: 15_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -230,7 +171,7 @@ app.post('/contact', async (req, res) => {
 
 app.get('/auth/me', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback('get', '/auth/me', {
+    const flaskRes = await axios.get(`${FLASK_BASE_URL}/auth/me`, {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -244,7 +185,7 @@ app.get('/auth/me', async (req, res) => {
 
 app.get('/auth/profile', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback('get', '/auth/profile', {
+    const flaskRes = await axios.get(`${FLASK_BASE_URL}/auth/profile`, {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -258,7 +199,7 @@ app.get('/auth/profile', async (req, res) => {
 
 app.put('/auth/github-token', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback('put', '/auth/github-token', req.body, {
+    const flaskRes = await axios.put(`${FLASK_BASE_URL}/auth/github-token`, req.body, {
       timeout: 10_000,
       headers: {
         Authorization: req.headers.authorization || '',
@@ -327,6 +268,6 @@ setInterval(() => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Express gateway  →  http://localhost:${PORT}`);
-  console.log(`Flask AI engine  →  ${FLASK_URLS.join(', ')}`);
+  console.log(`Flask AI engine  →  ${FLASK_BASE_URL}`);
   console.log('Routes: GET /health | GET /health/upstream | POST /generate-site | POST /generate-and-deploy | POST /auth/signup | POST /auth/login | POST /auth/signin | GET /auth/me | GET /auth/profile | PUT /auth/github-token');
 });
