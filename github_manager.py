@@ -1,4 +1,5 @@
 from github import Github, GithubException
+import time as _time
 import os
 from dotenv import load_dotenv
 import datetime
@@ -28,7 +29,7 @@ class GitHubManager:
         if not self.token:
             raise ValueError("No GitHub token provided")
         
-        self.github = Github(self.token, timeout=30)
+        self.github = Github(self.token, timeout=30, retry=0)
         self.user = self.github.get_user()
     
     def generate_repo_name(self, description, company_name=None):
@@ -94,6 +95,25 @@ class GitHubManager:
                     candidate = f"{base_name}-{attempt + 1}"
                     print(f"Repository exists, trying: {candidate}")
                     continue
+
+                if e.status == 403:
+                    # Distinguish rate-limit from permission denied.
+                    msg = str(e.data).lower()
+                    if 'rate' in msg or 'abuse' in msg or 'secondary' in msg:
+                        if attempt < max_attempts:
+                            wait = min(15 * attempt, 60)
+                            print(f"GitHub rate limit hit. Waiting {wait}s before retry {attempt + 1}...")
+                            _time.sleep(wait)
+                            continue
+                        raise Exception(
+                            'GitHub rate limit exceeded after multiple retries. '
+                            'Wait a few minutes and try again.'
+                        )
+                    raise Exception(
+                        'GitHub returned 403 Forbidden. Your token may lack '
+                        'the "repo" scope needed to create repositories. '
+                        'Generate a new token with full repo permissions.'
+                    )
 
                 raise Exception(
                     f"Failed to create repository (HTTP {e.status} on "
