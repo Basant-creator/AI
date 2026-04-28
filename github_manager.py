@@ -195,9 +195,26 @@ class GitHubManager:
             all_files = {'README.md': readme_content}
             all_files.update(files)
 
-            repo_url = self._push_files_via_tree(repo, all_files)
-            print(f"✓ All {total} files pushed in one commit!")
-            return repo_url
+            # Retry with backoff if the push fails (transient rate-limit, etc.)
+            max_push_retries = 3
+            last_push_error = None
+
+            for push_attempt in range(1, max_push_retries + 1):
+                try:
+                    repo_url = self._push_files_via_tree(repo, all_files)
+                    print(f"✓ All {total} files pushed in one commit!")
+                    return repo_url
+                except Exception as push_err:
+                    last_push_error = push_err
+                    if push_attempt < max_push_retries:
+                        wait = 15 * push_attempt  # 15s, 30s
+                        print(f"Push failed (attempt {push_attempt}/{max_push_retries}): {push_err}")
+                        print(f"Retrying in {wait}s...")
+                        _time.sleep(wait)
+                    else:
+                        print(f"Push failed after {max_push_retries} attempts.")
+
+            raise last_push_error
 
         except Exception as e:
             raise Exception(f"Failed to push files: {str(e)}")
