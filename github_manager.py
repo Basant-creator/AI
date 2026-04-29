@@ -84,9 +84,11 @@ class GitHubManager:
                     name=candidate,
                     description=description,
                     private=private,
-                    auto_init=False,
+                    auto_init=True,   # Creates initial commit so Trees API works
                 )
                 print(f"✓ Repository created: {repo.html_url}")
+                # Give GitHub a moment to propagate the initial commit
+                _time.sleep(2)
                 return repo
 
             except GithubException as e:
@@ -124,14 +126,42 @@ class GitHubManager:
         """
         Push every file in a single commit using the low-level Git Data API.
 
-        Steps (3 API calls total, regardless of file count):
-          1. Create a git tree with all file blobs
-          2. Create a commit pointing to that tree
-          3. Update refs/heads/main to that commit
+        The repo MUST already have at least one commit (auto_init=True).
+        We build on top of HEAD so the Trees API never sees an empty repo.
+
+        Steps (4 API calls total, regardless of file count):
+          0. Get the current HEAD commit + its tree SHA
+          1. Create a new git tree based on the existing one
+          2. Create a commit with the HEAD as parent
+          3. Update refs/heads/main to the new commit
         """
+        # 0. Fetch the existing HEAD so we have a base tree and parent commit.
+        #    Retry a few times in case GitHub hasn't propagated the init commit yet.
+        head_commit = None
+        for wait in (0, 2, 4):
+            if wait:
+                _time.sleep(wait)
+            try:
+                ref = repo.get_git_ref('heads/main')
+                head_commit = repo.get_git_commit(ref.object.sha)
+                break
+            except GithubException:
+                try:
+                    ref = repo.get_git_ref('heads/master')
+                    head_commit = repo.get_git_commit(ref.object.sha)
+                    break
+                except GithubException:
+                    continue
+
+        if head_commit is None:
+            raise Exception(
+                'Could not find HEAD commit. '
+                'The repository may not have been initialised properly.'
+            )
+
+        # 1. Build tree elements
         tree_items = []
         for path, content in all_files.items():
-            # InputGitTreeElement: mode 100644 = regular file, type blob
             tree_items.append({
                 'path': path,
                 'mode': '100644',
@@ -139,25 +169,22 @@ class GitHubManager:
                 'content': content,
             })
 
-        # 1. Create the tree (no base_tree → brand-new root)
+        # 2. Create the tree on top of the existing base tree
         git_tree = repo.create_git_tree(
-            [InputGitTreeElement(**item) for item in tree_items]
+            [InputGitTreeElement(**item) for item in tree_items],
+            base_tree=head_commit.tree,
         )
 
-        # 2. Create the commit
+        # 3. Create the commit with HEAD as parent
         commit = repo.create_git_commit(
             message='Initial commit: AI-generated website',
             tree=git_tree,
-            parents=[],
+            parents=[head_commit],
         )
 
-        # 3. Point main branch at the new commit
-        #    New repos may not have any ref yet, so create it if needed.
-        try:
-            ref = repo.get_git_ref('heads/main')
-            ref.edit(sha=commit.sha, force=True)
-        except GithubException:
-            repo.create_git_ref(ref=f'refs/heads/main', sha=commit.sha)
+        # 4. Fast-forward the branch ref to the new commit
+        ref = repo.get_git_ref('heads/main')
+        ref.edit(sha=commit.sha, force=True)
 
         return repo.html_url
 
