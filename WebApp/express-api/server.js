@@ -70,12 +70,12 @@ app.get('/health/upstream', async (_req, res) => {
  */
 app.post('/generate-site', async (req, res) => {
   try {
-    const flaskRes = await axiosWithFallback(
-      'post',
-      '/generate-website',
-      req.body,
-      { timeout: 120_000 }, // AI generation can take up to ~2 min
-    );
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/generate-website`, req.body, {
+      timeout: 120_000, // AI generation can take up to ~2 min
+      headers: {
+        Authorization: req.headers.authorization || '',
+      },
+    });
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
     forwardError(err, res, 'generate-site');

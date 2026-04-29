@@ -8,6 +8,41 @@ const API_BASE = '';
 const AUTH_STORAGE_KEY = 'bobai_session_token';
 let loginRequestInFlight = false;
 
+/**
+ * Fetch wrapper with automatic retry + exponential backoff.
+ * Retries on 502/503/504 (typical Render cold-start errors) up to
+ * `maxRetries` times before giving up. All other status codes are
+ * returned immediately so callers can handle them.
+ */
+async function fetchWithFallback(path, options = {}, maxRetries = 2) {
+    const url = `${API_BASE}${path}`;
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const res = await fetch(url, options);
+
+            // Only retry on gateway errors (cold-start / transient)
+            if ([502, 503, 504].includes(res.status) && attempt < maxRetries) {
+                const wait = Math.min(1000 * 2 ** attempt, 6000);
+                await new Promise(r => setTimeout(r, wait));
+                continue;
+            }
+
+            return res; // success or non-retryable error
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxRetries) {
+                const wait = Math.min(1000 * 2 ** attempt, 6000);
+                await new Promise(r => setTimeout(r, wait));
+            }
+        }
+    }
+
+    // All retries exhausted — throw so callers can show a toast
+    throw lastError || new Error('Request failed after retries');
+}
+
 function getSessionToken() {
     return localStorage.getItem(AUTH_STORAGE_KEY) || '';
 }
@@ -215,7 +250,7 @@ async function handleLogin(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/signin`, {
+        const res = await fetchWithFallback('/auth/signin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: identifier, gmail: identifier, password }),
@@ -263,7 +298,7 @@ async function handleSignup(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/signup`, {
+        const res = await fetchWithFallback('/auth/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -318,7 +353,7 @@ async function handleTokenUpdate(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/auth/github-token`, {
+        const res = await fetchWithFallback('/auth/github-token', {
             method: 'PUT',
             headers: authHeaders(),
             body: JSON.stringify({ github_token: githubToken }),
