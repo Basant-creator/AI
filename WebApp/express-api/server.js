@@ -131,7 +131,7 @@ app.get('/job/:jobId', async (req, res) => {
  */
 app.post('/auth/signup', async (req, res) => {
   try {
-    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signup`, req.body, { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signup`, req.body, { timeout: 60_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -141,7 +141,7 @@ app.post('/auth/signup', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
   try {
-    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/login`, req.body, { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/login`, req.body, { timeout: 60_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -151,7 +151,7 @@ app.post('/auth/login', async (req, res) => {
 
 app.post('/auth/signin', async (req, res) => {
   try {
-    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signin`, req.body, { timeout: 15_000 },
+    const flaskRes = await axios.post(`${FLASK_BASE_URL}/auth/signin`, req.body, { timeout: 60_000 },
     );
     res.status(flaskRes.status).json(flaskRes.data);
   } catch (err) {
@@ -172,7 +172,7 @@ app.post('/contact', async (req, res) => {
 app.get('/auth/me', async (req, res) => {
   try {
     const flaskRes = await axios.get(`${FLASK_BASE_URL}/auth/me`, {
-      timeout: 10_000,
+      timeout: 60_000,
       headers: {
         Authorization: req.headers.authorization || '',
       },
@@ -255,7 +255,7 @@ function forwardError(err, res, route) {
 
 // ─── Keep-Alive Ping ──────────────────────────────────────────────────────────
 // Pings the server every 10 minutes to prevent Render free tier from sleeping
-const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || 'https://bob-ai-1.onrender.com/health/upstream';
+const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || 'https://bob-ai-1-jsgn.onrender.com/health/upstream';
 const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
 
 setInterval(() => {

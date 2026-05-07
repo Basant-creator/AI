@@ -14,7 +14,7 @@ let loginRequestInFlight = false;
  * `maxRetries` times before giving up. All other status codes are
  * returned immediately so callers can handle them.
  */
-async function fetchWithFallback(path, options = {}, maxRetries = 2) {
+async function fetchWithFallback(path, options = {}, maxRetries = 8) {
     const url = `${API_BASE}${path}`;
     let lastError = null;
 
@@ -24,7 +24,8 @@ async function fetchWithFallback(path, options = {}, maxRetries = 2) {
 
             // Only retry on gateway errors (cold-start / transient)
             if ([502, 503, 504].includes(res.status) && attempt < maxRetries) {
-                const wait = Math.min(1000 * 2 ** attempt, 6000);
+                const wait = Math.min(2000 * 2 ** attempt, 10000);
+                console.log(`[fetchWithFallback] Got ${res.status} for ${path}. Retrying in ${wait}ms... (Attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(r => setTimeout(r, wait));
                 continue;
             }
@@ -33,7 +34,8 @@ async function fetchWithFallback(path, options = {}, maxRetries = 2) {
         } catch (err) {
             lastError = err;
             if (attempt < maxRetries) {
-                const wait = Math.min(1000 * 2 ** attempt, 6000);
+                const wait = Math.min(2000 * 2 ** attempt, 10000);
+                console.log(`[fetchWithFallback] Network error for ${path}. Retrying in ${wait}ms... (Attempt ${attempt + 1}/${maxRetries})`);
                 await new Promise(r => setTimeout(r, wait));
             }
         }
